@@ -8,6 +8,7 @@ library(gProfileR)
 library(ggplot2)
 library(plotly)
 library(shiny)
+
 library(shinyjs)
 library(shinyBS)
 library(ggplotify)
@@ -39,6 +40,7 @@ set.seed(12)
 load(file ="data/updated_kegg_hierarhcy.RData")
 load("data/mm_reactome_hierarchy.RData")
 load("data/hm_reactome_hierarchy.RData")
+load("data/rat_reactome_hierarchy.RData")
 load("data/rat_kegg_hyerarchy.RData")
 reduced_kegg_hierarchy = kegg_hierarchy
 
@@ -871,11 +873,11 @@ shinyServer(function(input, output, session) {
         }
         if(input$organism == "Rat"){
           org = "Rat"
-          reactome_hierarchy = mm_reactome_hierarchy
+          reactome_hierarchy = rat_reactome_hierarchy
           reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
-          reactome_hierarchy[,1] = mouse_map[reactome_hierarchy[,1],2]
-          reactome_hierarchy[,2] = mouse_map[unlist(reactome_hierarchy[,2]),2]
-          reactome_hierarchy[,3] = mouse_map[unlist(reactome_hierarchy[,3]),2]
+          reactome_hierarchy[,1] = rat_map[reactome_hierarchy[,1],2]
+          reactome_hierarchy[,2] = rat_map[unlist(reactome_hierarchy[,2]),2]
+          reactome_hierarchy[,3] = rat_map[unlist(reactome_hierarchy[,3]),2]
           org_enrich = "rnorvegicus"
           
         }
@@ -944,7 +946,7 @@ shinyServer(function(input, output, session) {
         print("Before enrichment")
         #save(GL, type, org, pval, adjust_method, file = "../BeforeEnrichDatList.RData")
         
-        #EnrichDatList = lapply(GL,enrich,type,org,pval,"bonferroni",sig = FALSE, mis = 0, only_annotated = FALSE)
+        EnrichDatList = lapply(GL,enrich,type,org,pval,"bonferroni",sig = FALSE, mis = 0, only_annotated = FALSE)
         if(input$pcorrection == "none"){ 
           print("Nominal PValue")
           EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),"bonferroni", sig = FALSE, mis = as.numeric(input$min_intersection), only_annotated=input$only_annotated)
