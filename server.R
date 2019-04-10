@@ -946,7 +946,7 @@ shinyServer(function(input, output, session) {
         print("Before enrichment")
         #save(GL, type, org, pval, adjust_method, file = "../BeforeEnrichDatList.RData")
         
-        EnrichDatList = lapply(GL,enrich,type,org,pval,"bonferroni",sig = FALSE, mis = 0, only_annotated = FALSE)
+        #EnrichDatList = lapply(GL,enrich,type,org,pval,"bonferroni",sig = FALSE, mis = 0, only_annotated = FALSE)
         if(input$pcorrection == "none"){ 
           print("Nominal PValue")
           EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),"bonferroni", sig = FALSE, mis = as.numeric(input$min_intersection), only_annotated=input$only_annotated)
