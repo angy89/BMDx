@@ -953,7 +953,7 @@ shinyServer(function(input, output, session) {
           for(i in 1:length(EnrichDatList)){
             ERi = EnrichDatList[[i]]
             ERi$pValueAdj = ERi$pValueAdj / length(ERi$pValueAdj)
-            ERi$pValue = ERi$pValueAdj / length(ERi$pValue)
+            ERi$pValue = ERi$pValue / length(ERi$pValue)
             EnrichDatList[[i]] = ERi
           }
         }else{
