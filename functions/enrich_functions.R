@@ -177,7 +177,7 @@ get_kegg_hierarchy <- function(){
   return(kegg_hierarchy)
 }
 
-enrich = function(x, type, org, pval, adjust_method,sig = TRUE, mis = 0, only_annotated = TRUE){
+enrich = function(x, type, org, pval, adjust_method,sig = FALSE, mis = 0, only_annotated = TRUE){
   if(only_annotated){
     domain_size = "annotated"
   }else{

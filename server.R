@@ -805,15 +805,16 @@ shinyServer(function(input, output, session) {
         
       }     
       
-  print(head(GList[[1]]))
-  print("Organism: ---------------->>>>>>>>>")
-  print(input$organism)
-  print("annType: ---------------->>>>>>>>>")
-  print(input$idtype)
-  
-  organism = input$organism
-  annType = input$idtype
-  save(GList, organism, annType, file = "../enrichData.RData")
+      print(head(GList[[1]]))
+      print("Organism: ---------------->>>>>>>>>")
+      print(input$organism)
+      print("annType: ---------------->>>>>>>>>")
+      print(input$idtype)
+      
+      organism = input$organism
+      annType = input$idtype
+      #save(GList, organism, annType, file = "../enrichData.RData")
+
         GList = convert_genes(organism = input$organism, GList=GList, annType = input$idtype)
         
         print("gene converted")
@@ -949,7 +950,8 @@ shinyServer(function(input, output, session) {
         #EnrichDatList = lapply(GL,enrich,type,org,pval,"bonferroni",sig = FALSE, mis = 0, only_annotated = FALSE)
         if(input$pcorrection == "none"){ 
           print("Nominal PValue")
-          EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),"bonferroni", sig = FALSE, mis = as.numeric(input$min_intersection), only_annotated=input$only_annotated)
+          #as.numeric(input$pvalueTh)
+          EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,1,"bonferroni", sig = FALSE, mis = as.numeric(input$min_intersection), only_annotated=input$only_annotated)
           for(i in 1:length(EnrichDatList)){
             ERi = EnrichDatList[[i]]
             ERi$pValueAdj = ERi$pValueAdj / length(ERi$pValueAdj)
@@ -960,11 +962,12 @@ shinyServer(function(input, output, session) {
           EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),input$pcorrection, sig = TRUE, mis = as.numeric(input$min_intersection),only_annotated=input$only_annotated)
         }
         
+        #save(EnrichDatList, file = "EnrichDatList.RData")
         
         #EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),input$pcorrection, sig = TRUE)
         gVars$EnrichDatList = EnrichDatList
         
-        save(EnrichDatList,file = "../EnrichDatList.RData")
+        #save(EnrichDatList,file = "../EnrichDatList.RData")
         print("After enrichment")
         
         if(input$EnrichType == "GO"){
@@ -1117,7 +1120,8 @@ shinyServer(function(input, output, session) {
       error = function(e) {
         # return a safeError if a parsing error occurs
         shinyjs::info(e$message)
-      })
+        shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
+       })
     
     #   print(genelist)
     #   GList = convert_genes(organism = input$organism, GList=genelist, annType = input$idtype)

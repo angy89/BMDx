@@ -210,7 +210,7 @@ fluidPage(
                          column(3,
                                 uiOutput("MaxDose")
                          ),column(3,
-                                  selectInput("LOOF", "LOOF PValue Th:", choices=c(0.3,0.2,0.1,0.05),selected=0.1)
+                                  selectInput("LOOF", "Lack-of-fit PValue Th:", choices=c(0.3,0.2,0.1,0.05),selected=0.1)
                         ),
                         # column(3,
                         #        selectInput("Interval", "Interval type:", choices=c("none","delta","fls"),selected="delta")
