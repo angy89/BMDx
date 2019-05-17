@@ -340,10 +340,19 @@ fit_models_mselect = function(formula=expr~dose, dataframe=df_gi,sel_mod_list=se
     
     X = mselect2(object = mod.internal$opt_mod, fctList = f_list,sorted = "IC",
                  linreg= TRUE, powreg = TRUE, pow = pow, expreg = TRUE, hillreg = TRUE, hillN = hillN, Kd = Kd)
-    X = X[rownames(X) %in% mNames,]
+    
     mname = gsub(pattern = "\\(\\)",replacement = "",x = mod.internal$mod_name)
     X[which(rownames(X) %in% mname)[1],3] = mod.internal$loof_test$`p value`[2]
     
+    toSelect = rownames(X) %in% mNames
+    if(sum(toSelect) == 1){
+      ss = matrix(data = X[toSelect,],nrow = 1,dimnames = list(rownames(X)[rownames(X) %in% mNames],names(X[toSelect,])))
+      X = ss
+    }else{
+      X = X[toSelect,]
+    }
+    
+
     toRem = which(is.na(X[,3]))
     
     if(length(toRem) == nrow(X)){ #all the lack of fit are NA

@@ -155,7 +155,16 @@ kegg_mat_p <- function(EnrichDatList,hierarchy) {
     print("after")
     print(class(kegg_mat_cell))
   } else {
+    
+    ### ADDED 
+    if(nrow(kegg_mat_cell)>1){
       kegg_mat_cell <- kegg_mat_cell[,colSums(!is.na(kegg_mat_cell)) >0]
+    }else{
+      pnames = colnames(kegg_mat_cell)
+      kegg_mat_cellss <- matrix(kegg_mat_cell[,colSums(!is.na(kegg_mat_cell)) >0], nrow = 1) 
+      colnames(kegg_mat_cellss) = pnames[colSums(!is.na(kegg_mat_cell)) >0]
+      kegg_mat_cell = kegg_mat_cellss
+    }
   }
 
   
@@ -203,7 +212,16 @@ kegg_mat_fc <- function(EnrichDatList,hierarchy,GList, summ_fun=median) {
     print("after")
     print(class(kegg_mat_cell))
   } else {
+    ### ADDED 
+    if(nrow(kegg_mat_cell)>1){
       kegg_mat_cell <- kegg_mat_cell[,colSums(!is.na(kegg_mat_cell)) >0]
+    }else{
+      pnames = colnames(kegg_mat_cell)
+      kegg_mat_cellss <- matrix(kegg_mat_cell[,colSums(!is.na(kegg_mat_cell)) >0], nrow = 1) 
+      colnames(kegg_mat_cellss) = pnames[colSums(!is.na(kegg_mat_cell)) >0]
+      kegg_mat_cell = kegg_mat_cellss
+    }
+      #kegg_mat_cell <- kegg_mat_cell[,colSums(!is.na(kegg_mat_cell)) >0]
   }
   #kegg_mat_cell <- kegg_mat_cell[,colSums(kegg_mat_cell,na.rm = T)>0]
   return(kegg_mat_cell)

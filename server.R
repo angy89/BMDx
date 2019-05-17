@@ -442,22 +442,22 @@ shinyServer(function(input, output, session) {
     nrlevels <- apply(phTable, 2, function(x){length(levels(factor(x)))})
     nrlevels.singular <- which(nrlevels==1)
     
-    if(length(nrlevels.singular)>0){
-      remInfo <- 1
-      remStr <- paste0(remStr, "Following columns are removed because they contain only single repeated value:\n[",paste0(names(nrlevels.singular), collapse=", "), "]")
-      if(length(nrlevels.singular)==ncol(phTable)){
-        remStr <- paste0(remStr, "\n\nNo column survived filtering!!! Please define phenotype data columns with singular data type.")
-        shinyjs::info(remStr)
-        return(NULL)
-      }
-      col2rem <- which(colnames(phTable) %in% names(nrlevels.singular))
-      phTable <- phTable[,-col2rem, drop=F]
-    }
+    # if(length(nrlevels.singular)>0){
+    #   remInfo <- 1
+    #   remStr <- paste0(remStr, "Following columns are removed because they contain only single repeated value:\n[",paste0(names(nrlevels.singular), collapse=", "), "]")
+    #   if(length(nrlevels.singular)==ncol(phTable)){
+    #     remStr <- paste0(remStr, "\n\nNo column survived filtering!!! Please define phenotype data columns with singular data type.")
+    #     shinyjs::info(remStr)
+    #     return(NULL)
+    #   }
+    #   col2rem <- which(colnames(phTable) %in% names(nrlevels.singular))
+    #   phTable <- phTable[,-col2rem, drop=F]
+    # }
     
-    #Inform user with the columns removed from the data frame
-    if(remInfo==1){
-      shinyjs::info(remStr)
-    }
+    # #Inform user with the columns removed from the data frame
+    # if(remInfo==1){
+    #   shinyjs::info(remStr)
+    # }
     print("str(phTable) -- after:")
     print(str(phTable))
     
@@ -1871,10 +1871,6 @@ shinyServer(function(input, output, session) {
     # 
     # ItemsList = venn(GL)
     # ItemsList = attr(ItemsList,"intersections")
-    
-    c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
-    
-    
     # innerset = unlist(strsplit(x = names(ItemsList)[[length(ItemsList)]],split = ":"))
     # 
     # BMD_gene = c()
@@ -1897,65 +1893,54 @@ shinyServer(function(input, output, session) {
     # cls = cutree(hls, as.numeric(input$geneClust))
     # XX = cbind(XX, cls[as.character(as.vector(XX[,1]))])
     # colnames(XX)[4] = "Cluster"
-    
-    c(XX, hls, BMD_gene) %<-% create_gene_bmd_dataframe_and_cluster_genes_by_bmd(bmd_list=gVars$MQ_BMD_filtered,
-                                                                                 ItemsList=ItemsList,
-                                                                                 hmethod=input$geneClustMeth, 
-                                                                                 nclust=as.numeric(input$geneClust),
-                                                                                 intersectionName=input$intersectionName)
-
-    
-    p = ggplot(data=XX, aes(x=TimePoint, y=BMD, group=Gene, color = Gene)) +
-      geom_line(linetype = "dashed")+
-      geom_point() + facet_grid(~Cluster)
-    ggplotly(p)
+    if(length(gVars$MQ_BMD_filtered)>1){
+      
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+      
+      c(XX, hls, BMD_gene) %<-% create_gene_bmd_dataframe_and_cluster_genes_by_bmd(bmd_list=gVars$MQ_BMD_filtered,
+                                                                                   ItemsList=ItemsList,
+                                                                                   hmethod=input$geneClustMeth, 
+                                                                                   nclust=as.numeric(input$geneClust),
+                                                                                   intersectionName=input$intersectionName)
+  
+      
+      p = ggplot(data=XX, aes(x=TimePoint, y=BMD, group=Gene, color = Gene)) +
+        geom_line(linetype = "dashed")+
+        geom_point() + facet_grid(~Cluster)
+      ggplotly(p)
+    }
   })
   
   
   output$nclustvenn <- renderUI({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
     
-    # GL = list()
-    # for(i in 1:length(gVars$MQ_BMD_filtered)){
-    #   BMD_tab <- gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-    #   if(!is.null(BMD_tab) & nrow(BMD_tab)>0){
-    #     GL[[names(gVars$MQ_BMD_filtered)[i]]] =  BMD_tab[,"Gene"]
-    #   }
-    # }
-    # 
-    # ItemsList = venn(GL)
-    # ItemsList = attr(ItemsList,"intersections")
-    
-    c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
-
-    if(is.null(input$input$intersectionName)){
-      ng = length(ItemsList[[length(ItemsList)]])
-    }else{
-      ng = length(ItemsList[[input$input$intersectionName]])
+    if(length(gVars$MQ_BMD_filtered)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+      
+      if(is.null(input$input$intersectionName)){
+        ng = length(ItemsList[[length(ItemsList)]])
+      }else{
+        ng = length(ItemsList[[input$input$intersectionName]])
+      }
+      #
+      selectInput(inputId = "geneClust", label = "Number of clusters",choices = as.list(1:ng), selected = 1)
+      
     }
-    #
-    selectInput(inputId = "geneClust", label = "Number of clusters",choices = as.list(1:ng), selected = 1)
+    
   })
   
   output$intersectionNameUI <- renderUI({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
     
-    # GL = list()
-    # for(i in 1:length(gVars$MQ_BMD_filtered)){
-    #   BMD_tab <- gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-    #   if(!is.null(BMD_tab) & nrow(BMD_tab)>0){
-    #     GL[[names(gVars$MQ_BMD_filtered)[i]]] =  BMD_tab[,"Gene"]
-    #   }
-    # }
-    # 
-    # ItemsList = venn(GL)
-    # ItemsList = attr(ItemsList,"intersections")
-    
-    c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
-    
-    ng = length(ItemsList[[length(ItemsList)]])
-    selectInput(inputId = "intersectionName", label = "Select Gene Set",choices = as.list(names(ItemsList)), selected = names(ItemsList)[[length(ItemsList)]])
-  })
+    if(length(gVars$MQ_BMD_filtered)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+      
+      ng = length(ItemsList[[length(ItemsList)]])
+      selectInput(inputId = "intersectionName", label = "Select Gene Set",choices = as.list(names(ItemsList)), selected = names(ItemsList)[[length(ItemsList)]])
+      
+    }
+})
   
 
   
@@ -1963,60 +1948,36 @@ shinyServer(function(input, output, session) {
   output$VennDF = DT::renderDataTable({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
     
-    # GL = list()
-    # for(i in 1:length(gVars$MQ_BMD_filtered)){
-    #   BMD_tab <- gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-    #   if(!is.null(BMD_tab) & nrow(BMD_tab)>0){
-    #     GL[[names(gVars$MQ_BMD_filtered)[i]]] =  BMD_tab[,"Gene"]
-    #   }
-    # }
-    # 
-    # ItemsList = venn(GL)
-    # ItemsList = attr(ItemsList,"intersections")
-    
-    c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
-    gVars$ItemsList = ItemsList
-    
-    # df = matrix("", nrow = max(unlist(lapply(ItemsList, length))), ncol = length(ItemsList))
-    # colnames(df) = names(ItemsList)
-    # for(i in 1:length(ItemsList)){
-    #   if(length(ItemsList[[i]])>0){
-    #     df[1:length(ItemsList[[i]]),i] = ItemsList[[i]]
-    #   }
-    # }
-    
-    df = build_dataframe_from_genes_in_venn_diagrams(ItemsList)
-    gVars$venn_genes_df = df
-    
-    DT::datatable(df, filter="top",
-                  options = list(
-                    search = list(regex=TRUE, caseInsensitive=FALSE),
-                    scrollX=TRUE,
-                    ordering=T,
-                    lengthMenu = c(5, 10, 15, 20, 40, 60, 100)
-                  )
-    )
+    if(length(gVars$MQ_BMD_filtered)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+      gVars$ItemsList = ItemsList
+      
+      df = build_dataframe_from_genes_in_venn_diagrams(ItemsList)
+      gVars$venn_genes_df = df
+      
+      DT::datatable(df, filter="top",
+                    options = list(
+                      search = list(regex=TRUE, caseInsensitive=FALSE),
+                      scrollX=TRUE,
+                      ordering=T,
+                      lengthMenu = c(5, 10, 15, 20, 40, 60, 100)
+                    )
+      )
+    }
+
   })
 
   output$NGVenn = renderPlot({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
     
-    # GL = list()
-    # for(i in 1:length(gVars$MQ_BMD_filtered)){
-    #   BMD_tab <- gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-    #   if(!is.null(BMD_tab) & nrow(BMD_tab)>0){
-    #     GL[[names(gVars$MQ_BMD_filtered)[i]]] =  BMD_tab[,"Gene"]
-    #   }
-    # }
-    # 
-    # ItemsList = venn(GL)
-    # ItemsList = attr(ItemsList,"intersections")
+    if(length(gVars$MQ_BMD_filtered)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+      gVars$ItemsList = ItemsList
+      gVars$GL = GL
+      par(mar = c(0,0,0,0))
+      venn(GL)
+    }
     
-    c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
-    gVars$ItemsList = ItemsList
-    gVars$GL = GL
-    par(mar = c(0,0,0,0))
-    venn(GL)
   })
   
   output$timePointSelTab <- renderUI({
@@ -3039,12 +3000,16 @@ shinyServer(function(input, output, session) {
       
     }
     
+    print("before collapse")
     #controlla anche la selezione di righe e colonne
     #gVars$toPlot = plot_function(gcl = gVars$clust_mat,kegg_h = gVars$reduced_kegg_hierarchy,plt_mat = gVars$toPlotMap,input_n=as.numeric(input$level))
     
     kegg_nano_1 <- collapse_paths(kegg_hierarchy = gVars$reduced_kegg_hierarchy,kegg_mat_cell = gVars$toPlotMap, collapse_level = as.numeric(input$level))
     #extract collapsed matrix and collapsed hierarachy
     mat <- kegg_nano_1[[1]]
+    if(sum(dim(gVars$toPlotMap) == c(1,1))==2){
+      rownames(mat) = rownames(gVars$toPlotMap) # toPlotMap e' 1x123
+    }
     hier <- kegg_nano_1[[2]]
     
     shiny::validate(need(expr = ncol(mat)>0, message = "No result for the enrichment or the filters are too restrictive. Please enlarge your selection"))
@@ -3089,6 +3054,10 @@ shinyServer(function(input, output, session) {
       print(dim(mat_to_Plot))
       
       print(gVars$exp_ann)
+      
+      if(nrow(mat_to_Plot)==1){
+        rownames(mat_to_Plot) = gVars$exp_ann[1,2]
+      }
       
       #print(mat_to_Plot[1:5,1:5])      
       gVars$toPlot = plot_grid(path_mat = mat_to_Plot,path_hier = hier,experiment_ann =  gVars$exp_ann,discrete =  isDiscrete,level_col = max(1,as.numeric(input$level)-1),square_colors=c(),color_leg=c(),path_text_size = 12,treat_text_size = 12, asRatio=(input$aspectRatio))

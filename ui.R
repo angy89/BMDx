@@ -459,7 +459,7 @@ fluidPage(
                                                                          fluidRow(column(12,plotOutput("BMD_dist_models"))),
                                                                          fluidRow(column(12, plotlyOutput("BMD_BMDL_BMDU_by_model")))
                                                          ),
-                                                         bsCollapsePanel("GENE X TP", style="warning",
+                                                         bsCollapsePanel("Gene by Time Point", style="warning",
                                                                          #"Here i will plot the BMD for every gene at different TP",
                                                                          plotlyOutput("NGTime")
                                                          ),
