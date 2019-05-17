@@ -322,6 +322,11 @@ plot_grid_genes <- function(path_mat, title="", experiment_ann=c(), gene_group=N
   
   print("experiment_ann")
   print(experiment_ann)
+
+  if(nrow(experiment_ann)== 1){
+    rownames(path_mat)= experiment_ann[1,2]
+  }
+  
   if(length(experiment_ann[,1])>0){
     print("Experiment is present!")
     #print(path_mat)
