@@ -1809,17 +1809,17 @@ shinyServer(function(input, output, session) {
         }
       }
     }
-    colnames(DF) = c("TimePoint", "LOOFPVal")
+    colnames(DF) = c("TimePoint", "LOFPVal")
     DF = as.data.frame(DF)
     DF$TimePoint = factor(DF$TimePoint, level=sort(as.numeric(as.vector(unique(DF$TimePoint)))))
-    DF$LOOFPVal = as.numeric(as.vector(DF$LOOFPVal))
+    DF$LOFPVal = as.numeric(as.vector(DF$LOFPVal))
     
     #save(DF, file = "loof_hist.RData")
     
     # ggplot(data=DF, aes( as.numeric(LOOFPVal))) + 
     #   geom_histogram() +  facet_grid(. ~ TimePoint)
     
-    p = ggplot(data=DF, aes(x = LOOFPVal)) + 
+    p = ggplot(data=DF, aes(x = LOFPVal)) + 
       geom_histogram(aes(y = ..density..)) + 
       geom_density(alpha = .2, fill="#FF6655") +
       facet_grid(. ~ TimePoint)

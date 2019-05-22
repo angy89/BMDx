@@ -10,6 +10,19 @@ library(plotly)
 library(xtable)
 
 appCSS <- "
+	//.main-header { z-index: 100000; }
+	.main-sidebar { background-color: white !important;}
+.sidebar { color: black; max-height: 900px; overflow-y: scroll; }
+.sidebar a { color: black !important; }
+.content-wrapper { margin-left: 15%; }
+//.panel { background-color: #222d32; }
+.panel-title a { font-weight: bold; color: white !important; }
+.panel-warning .panel-heading { background-color: #00c0ef; }
+.panel-warning { border-color: #8de9ff; }
+.panel-danger .panel-heading { background-color: #dd4b39; }
+.panel-success .panel-heading { background-color: #00a65a; }
+.panel-info .panel-heading { background-color: #7e46ff; }
+.panel-primary .panel-heading { background-color: #3079ae; }
 .multicol { 
                                    height: 150px;
 -webkit-column-count: 5; /* Chrome, Safari, Opera */ 
@@ -244,37 +257,37 @@ fluidPage(
                          column(12,
                          h5("Models Description"),                     
                                   bsCollapse(id="BMDModHelp",
-                                      bsCollapsePanel("Linear Model", style="warning",
+                                      bsCollapsePanel("Linear Model", style="primary",
                                         withMathJax(),
                                         helpText("The formula for the linear model is
                                                   $$ f(dose) = \\beta_0 + \\beta_1 dose $$
                                                   The linear model is a special case of the polynomial model, with $$n=1$$")
                                         ),
-                                        bsCollapsePanel("Polynomial Model (Quadratic/Cubic)", style="warning",
+                                        bsCollapsePanel("Polynomial Model (Quadratic/Cubic)", style="primary",
                                                   withMathJax(),
                                                   helpText("The formula for the polynomial model is
                                                            $$ f(dose) = \\beta_0 + \\beta_1 dose + \\beta_2 dose^2 + \\ldots + \\beta_n dose^n $$
                                                            Here n is the degree of the polynomial. The user can choose between $$n = 2, 3$$")
                                         ),
-                                        bsCollapsePanel("Power Model", style="warning",
+                                        bsCollapsePanel("Power Model", style="primary",
                                                       withMathJax(),
                                                       helpText("The formula for the power model is
                                                                $$ f(dose) = \\beta_0 + (dose)^\\delta $$
                                                                The user can choose between $$\\delta = 2, 3, 4$$")                                           
                                         ),
-                                        bsCollapsePanel("Exponential Model", style="warning",
+                                        bsCollapsePanel("Exponential Model", style="primary",
                                                       withMathJax(),
                                                       helpText("The formula for the exponential model is
                                                                $$ f(dose) = \\beta_0 + exp(dose) $$")                                           
                                                       ),
-                                         bsCollapsePanel("Hill Model", style="warning",
+                                         bsCollapsePanel("Hill Model", style="primary",
                                                       withMathJax(),
                                                       helpText("The formula for the hill model is 
                                                                $$ f(dose) = \\beta_0 + \\dfrac{dose^n}{Kd + dose^n} $$
                                                                The user can choose between $$n = 0.5,1,2,3,4,5$$ while Kd is fixed to 10.")
                                                               
                                                       ),
-                                        bsCollapsePanel("Asymptotic Regression", style = "warning",
+                                        bsCollapsePanel("Asymptotic Regression", style = "primary",
                                                         withMathJax(),
                                                         helpText("The formula for the asymptotic regression model is the following:
                                                               $$f(dose) = c + (d-c) \\times (1-exp(-dose/e)) $$
@@ -282,7 +295,7 @@ fluidPage(
                                                                the parameter e>0 is determining the steepness of the increase of dose.
                                                               The AR.3 model is the one depending from c, d and e parameters. The AR.2 model depends only on d and e parameters, while c is set to zero")
                                                       ),
-                                      bsCollapsePanel("Michaelis-Menten Model", style = "warning",
+                                      bsCollapsePanel("Michaelis-Menten Model", style = "primary",
                                                       withMathJax(),
                                                       helpText("The model is defined by the three-parameter model (MM.3) function
                                                                $$f(dose, (c, d, e)) = c + \\dfrac{d-c}{1+(e/dose)}$$
@@ -374,7 +387,7 @@ fluidPage(
                          )
                        )
       ),
-      fluidRow(
+      fluidRow(column(12,
         tabBox(id="display", title="", width=12,
                tabPanel(value="pdTab", title="Phenotype Data",
                         fluidRow(
@@ -398,7 +411,7 @@ fluidPage(
                         fluidRow(
                           column(6,
                              #fluidRow(downloadButton("downloadAnovaData", "Download")),
-                             fluidRow(DT::dataTableOutput("Anova_table"))
+                             DT::dataTableOutput("Anova_table")
                           ),
                           column(6,
                                  fluidRow(plotOutput("anovaPlot"))
@@ -407,7 +420,9 @@ fluidPage(
                         )
                ),
                tabPanel(value="BMDTab", title="BMD",
-                        tabsetPanel(
+                        fluidRow(column(12,
+                        tabBox(id = "bmdgenes", title = "", width = 12,
+                        #tabsetPanel(
                           tabPanel("Gene Level", 
                                    fluidRow(
                                      column(6,uiOutput("timePointSel2")),
@@ -415,7 +430,7 @@ fluidPage(
                                    ),
                                    fluidRow(
                                      column(6,
-                                            fluidRow(DT::dataTableOutput("BMD_table"))
+                                            DT::dataTableOutput("BMD_table")
                                      ),
                                      column(6,
                                             #checkboxInput("xlog", label = "Log scale x axis", value = TRUE),
@@ -438,32 +453,32 @@ fluidPage(
                           #          ),
                           tabPanel("Compare TP",
                                    tabPanel("Compare Time points",
-                                            fluidRow(
+                                            fluidRow(column(12,
                                               bsCollapse(id="TPSidebar", open="BMD",
-                                                         bsCollapsePanel("BMD Values", style="warning",
+                                                         bsCollapsePanel("BMD Values", style="primary",
                                                                          #"Here i will print the BMD value distribution",
                                                                          plotlyOutput("BMD_dist_TP")
                                                          ),
-                                                         bsCollapsePanel("Lack of fit Pvalues", style="warning",
+                                                         bsCollapsePanel("Lack of fit Pvalues", style="primary",
                                                                          #"Here i will print the BMD value distribution",
                                                                          plotlyOutput("BMD_pval_fitting")
                                                                          
                                                          ),
-                                                         bsCollapsePanel("BMD/BMDL", style="warning",
+                                                         bsCollapsePanel("BMD/BMDL", style="primary",
                                                                          #"Here i will print the BMD value distribution",
                                                                          plotlyOutput("BMD_BMDL")
 
                                                          ),
-                                                         bsCollapsePanel("Fitted models", style="warning",
+                                                         bsCollapsePanel("Fitted models", style="primary",
                                                                          #"Here i will print the BMD value distribution",
                                                                          fluidRow(column(12,plotOutput("BMD_dist_models"))),
                                                                          fluidRow(column(12, plotlyOutput("BMD_BMDL_BMDU_by_model")))
                                                          ),
-                                                         bsCollapsePanel("Gene by Time Point", style="warning",
+                                                         bsCollapsePanel("Gene by Time Point", style="primary",
                                                                          #"Here i will plot the BMD for every gene at different TP",
                                                                          plotlyOutput("NGTime")
                                                          ),
-                                                         bsCollapsePanel("Venn diagram responsive genes", style="warning",
+                                                         bsCollapsePanel("Venn diagram responsive genes", style="primary",
                                                                          #"Here i will plot the BMD for every gene at different TP",
                                                                          # uiOutput("geneList"),
                                                                          # plotlyOutput("gene_bmd_plot")
@@ -482,15 +497,15 @@ fluidPage(
                                                                           fluidRow(column(12, plotlyOutput("gene_bmd_plot"))
                                                                           )
                                                          )
-
                                               ) 
                                             )
                                             
-                                   )     
+                                   ))     
                                    
                           )
                         )
-               ),
+               )
+               )), #end tabpanel
                tabPanel(value = "enrTab",title = "Enrichment",
                 #         fluidRow(
                 #           column(6, uiOutput("timePointSel3"))
@@ -604,7 +619,7 @@ fluidPage(
                 
                )
         )
-      )
+      ))
     )
   )
 )
