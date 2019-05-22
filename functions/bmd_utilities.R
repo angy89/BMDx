@@ -281,11 +281,11 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
   }
   
   
-  colnames(BMDValues) = c("Gene","BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOOFPVal","ANOVAPVal")
+  colnames(BMDValues) = c("Gene","BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOFPVal","ANOVAPVal")
   BMDValues = as.data.frame(BMDValues)
   BMDValues$BMD = round(as.numeric(as.vector(BMDValues$BMD)),4)
   BMDValues$BMDL = round(as.numeric(as.vector(BMDValues$BMDL)),4)
-  BMDValues$LOOFPVal = round(as.numeric(as.vector(BMDValues$LOOFPVal)),4)
+  BMDValues$LOFPVal = round(as.numeric(as.vector(BMDValues$LOFPVal)),4)
   BMDValues$ANOVAPVal = round(as.numeric(as.vector(BMDValues$ANOVAPVal)),4)
   BMDValues = BMDValues[, 1:8]
 
@@ -495,7 +495,7 @@ BMD_filters = function(BMDRes,max_dose = 20, loofth = 0.1){
   print(length(BMDModels))
   
   bmd_to_rem = which(as.numeric(BMDValues[,"BMD"])>=max_dose)
-  loof_to_rem = which(as.numeric(BMDValues[,"LOOFPVal"])<=loofth)
+  loof_to_rem = which(as.numeric(BMDValues[,"LOFPVal"])<=loofth)
   
   bmd_na = union(which(is.na(BMDValues[,"BMD"])),
                  union(which(is.na(BMDValues[,"BMDL"])),

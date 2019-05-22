@@ -410,12 +410,10 @@ fluidPage(
                         ),
                         fluidRow(
                           column(6,
-                             #fluidRow(downloadButton("downloadAnovaData", "Download")),
                              DT::dataTableOutput("Anova_table")
                           ),
                           column(6,
-                                 fluidRow(plotOutput("anovaPlot"))
-                                 #fluidRow(plotOutput("AnovaVenn"))
+                                 fluidRow(shinycssloaders::withSpinner(plotOutput("anovaPlot"), type = 6))
                           )
                         )
                ),
@@ -433,57 +431,40 @@ fluidPage(
                                             DT::dataTableOutput("BMD_table")
                                      ),
                                      column(6,
-                                            #checkboxInput("xlog", label = "Log scale x axis", value = TRUE),
-                                            #selectInput("genePlotType", "Plot type", choices=c("average","none","obs","all","bars","confidence"),selected = "bars"),
-                                            plotOutput("bmd_fitting")
+                                            shinycssloaders::withSpinner(plotOutput("bmd_fitting"), type = 6)
                                    ))         
                           ),
-                          # tabPanel("Pathway Level", 
-                          #          fluidRow(
-                          #            column(6, uiOutput("timePointSelPat"))
-                          #          ),
-                          #          fluidRow(
-                          #            column(12,
-                          #                   DT::dataTableOutput("PAT_table")
-                          #            )),
-                          #          fluidRow(
-                          #            column(12,
-                          #                   plotOutput("path_bmd_dist"))
-                          #          )
-                          #          ),
                           tabPanel("Compare TP",
                                    tabPanel("Compare Time points",
                                             fluidRow(column(12,
                                               bsCollapse(id="TPSidebar", open="BMD",
                                                          bsCollapsePanel("BMD Values", style="primary",
                                                                          #"Here i will print the BMD value distribution",
-                                                                         plotlyOutput("BMD_dist_TP")
+                                                                         shinycssloaders::withSpinner(plotlyOutput("BMD_dist_TP"), type = 6)
                                                          ),
                                                          bsCollapsePanel("Lack of fit Pvalues", style="primary",
                                                                          #"Here i will print the BMD value distribution",
-                                                                         plotlyOutput("BMD_pval_fitting")
+                                                                         shinycssloaders::withSpinner(plotlyOutput("BMD_pval_fitting"), type = 6)
                                                                          
                                                          ),
                                                          bsCollapsePanel("BMD/BMDL", style="primary",
                                                                          #"Here i will print the BMD value distribution",
-                                                                         plotlyOutput("BMD_BMDL")
+                                                                         shinycssloaders::withSpinner(plotlyOutput("BMD_BMDL"), type = 6)
 
                                                          ),
                                                          bsCollapsePanel("Fitted models", style="primary",
                                                                          #"Here i will print the BMD value distribution",
-                                                                         fluidRow(column(12,plotOutput("BMD_dist_models"))),
-                                                                         fluidRow(column(12, plotlyOutput("BMD_BMDL_BMDU_by_model")))
+                                                                         fluidRow(column(12,shinycssloaders::withSpinner(plotOutput("BMD_dist_models"), type= 6))),
+                                                                         fluidRow(column(12, shinycssloaders::withSpinner(plotlyOutput("BMD_BMDL_BMDU_by_model"), type = 6)))
                                                          ),
                                                          bsCollapsePanel("Gene by Time Point", style="primary",
                                                                          #"Here i will plot the BMD for every gene at different TP",
-                                                                         plotlyOutput("NGTime")
+                                                                         shinycssloaders::withSpinner(plotlyOutput("NGTime"), type = 6)
                                                          ),
                                                          bsCollapsePanel("Venn diagram responsive genes", style="primary",
                                                                          #"Here i will plot the BMD for every gene at different TP",
-                                                                         # uiOutput("geneList"),
-                                                                         # plotlyOutput("gene_bmd_plot")
                                                                          fluidRow(
-                                                                           column(6,plotOutput("NGVenn")),
+                                                                           column(6,shinycssloaders::withSpinner(plotOutput("NGVenn"),type = 6)),
                                                                            column(6, DT::dataTableOutput("VennDF"))
                                                                          ),
                                                                          hr(),
@@ -574,7 +555,6 @@ fluidPage(
                     tabsetPanel(
                       
                       tabPanel("Heatmap",fluidRow(column(12,align="left",shinycssloaders::withSpinner(plotOutput(outputId="heatmap"), type=6)))),
-                      #tabPanel("Clustering",plotOutput(outputId="hclust_plot", width = "100%")),
                       tabPanel("Cluster Bubble Plot", plotlyOutput("pathway_bubble")),
                       tabPanel("Mean BMD for Time Point", plotlyOutput("meanBMD_timepoint")),
                       tabPanel("Gene BMD in pathway",
@@ -612,7 +592,6 @@ fluidPage(
                                ))
                       )
                     )
-                    #fluidRow(plotOutput(outputId="heatmap",height = 900))
                   )
                 )
                

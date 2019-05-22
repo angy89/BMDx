@@ -34,6 +34,7 @@ library(tidyverse)
 library(gridExtra)
 library(grid)
 library(gtable)
+library(shinycssloaders)
 
 set.seed(12)
 
@@ -145,7 +146,8 @@ shinyServer(function(input, output, session) {
   gVars$baChoices <- c("None"="none", "Scale"="scale", "Quantile"="quantile", "Cyclic Loess"="cyclicloess")
   
   
-  gVars$inputGx <- observeEvent(input$upload_gx_submit, {
+  #gVars$inputGx <- 
+  observeEvent(input$upload_gx_submit, {
     gxFile <- input$gx
     if (is.null(gxFile))
       return(NULL)
@@ -751,7 +753,7 @@ shinyServer(function(input, output, session) {
       print(as.numeric(input$max_dose_input))
       
       print("pvalue th -->")
-      print(as.numeric(input$LOOF))
+     # print(as.numeric(input$LOF))
 
       MQ_BMDListFiltered[[names(gVars$EXP_FIL)[i]]]  = BMD_filters(MQ_BMDList[[names(gVars$EXP_FIL)[i]]],max_dose = as.numeric(input$max_dose_input), loofth = as.numeric(input$LOOF))
       MQ_BMDListFilteredValues[[names(gVars$EXP_FIL)[i]]]  =  MQ_BMDListFiltered[[names(gVars$EXP_FIL)[i]]]$BMDValues_filtered
@@ -1805,7 +1807,7 @@ shinyServer(function(input, output, session) {
     for(i in 1:length(BMD_tab)){
       if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
         if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-          DF = rbind(DF, cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"LOOFPVal"]))
+          DF = rbind(DF, cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"LOFPVal"]))
         }
       }
     }
@@ -1813,11 +1815,6 @@ shinyServer(function(input, output, session) {
     DF = as.data.frame(DF)
     DF$TimePoint = factor(DF$TimePoint, level=sort(as.numeric(as.vector(unique(DF$TimePoint)))))
     DF$LOFPVal = as.numeric(as.vector(DF$LOFPVal))
-    
-    #save(DF, file = "loof_hist.RData")
-    
-    # ggplot(data=DF, aes( as.numeric(LOOFPVal))) + 
-    #   geom_histogram() +  facet_grid(. ~ TimePoint)
     
     p = ggplot(data=DF, aes(x = LOFPVal)) + 
       geom_histogram(aes(y = ..density..)) + 
@@ -2066,7 +2063,7 @@ shinyServer(function(input, output, session) {
                     ordering=T
                   )
     )
-  },selection = 'single') #server = TRUE
+  },selection = 'single', server = FALSE)
   
   output$bmd_fitting = renderPlot({
     # shiny::validate(
@@ -2607,6 +2604,7 @@ shinyServer(function(input, output, session) {
   },server=TRUE)
 
   output$gExpMat <- DT::renderDataTable({
+    
     if(is.null(gVars$inputGx))
       return(NULL)
     
