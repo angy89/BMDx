@@ -576,7 +576,7 @@ fluidPage(
                                )
                                ),
                       tabPanel("Pathways Table", 
-                               "Here I will display the enriched pathway in tabular form",
+                               #"Here I will display the enriched pathway in tabular form",
                                 fluidRow(uiOutput("timePointSelTab")),
                                 fluidRow(downloadButton("downloadEnrichedPathwayTables", "Download")),
                                 fluidRow(DT::dataTableOutput("PatTable"))
