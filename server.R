@@ -2060,16 +2060,12 @@ shinyServer(function(input, output, session) {
                   options = list(
                     search = list(regex=TRUE, caseInsensitive=FALSE),
                     scrollX=TRUE,
-                    ordering=T
+                    ordering=T, pageLength = 5
                   )
     )
   },selection = 'single', server = FALSE)
   
   output$bmd_fitting = renderPlot({
-    # shiny::validate(
-    #   need(is.null(input$BMD_table_rows_selected), "Select at least one row of the matrix!")
-    # )
-    
     if(length(input$BMD_table_rows_selected) == 0){
       return(NULL)
     }
@@ -2080,7 +2076,6 @@ shinyServer(function(input, output, session) {
     
     BMDVF = gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered
     
-    #geneName = gVars$MQ_BMD_filtered[[1]]$BMDValues_filtered[selectedrowindex,1]
     geneName = as.character(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Gene"])
     geneBMD = as.numeric(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMD"])
     geneBMDL = as.numeric(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDL"])
@@ -2103,17 +2098,14 @@ shinyServer(function(input, output, session) {
     class(modToPlot)
     
     print("Saving plot file")
-    #save(modToPlot,BMDVF, file = paste("plot_bmd_gene_",geneName,".Rdata",sep = ""))
     print("END Saving plot file")
     
-   # plot(modToPlot$opt_mod, log= "x", xlab = "Dose", ylab = "Expr",ylim = c(7,10))
-    
+
     print(geneBMD)
     print(geneBMDL)
     print(geneBMDU)
     
-    #par(mar = rep(0,4))
-    
+
     if(modName %in% c("Linear", "Quadratic", "Cubic", 
                       "Power2","Power3","Power4","Exponential",
                       "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
@@ -2145,7 +2137,6 @@ shinyServer(function(input, output, session) {
         
      }else{
       
-      #save(modToPlot,geneBMD, geneBMDL, geneBMDU, file = "../AR3_mod_to_plot.RData")
       demo.fits <- expand.grid(conc=seq(min(modToPlot$data[,1]), max(modToPlot$data[,1]), length=100))
       pm <- predict(modToPlot, newdata=demo.fits, interval="confidence") 
       demo.fits$p <- pm[,1]
@@ -2181,54 +2172,23 @@ shinyServer(function(input, output, session) {
         theme(panel.grid.minor = element_line(colour = "black",linetype="dashed",size=0.1)) +
         scale_colour_manual(name="Values",
                             values=c(BMDL="red", BMD="blue", BMDU="green"))
-      
-        #scale_y_continuous(limits = c( min(modToPlot$model[,1]),  max(modToPlot$model[,1]))) 
- 
-      
-      # if(input$xlog){
-      # 
-      #   # plot(modToPlot, log= "x", type=input$genePlotType, xlab = "Dose", ylab = "Expr",
-      #   #      ylim = c(floor(min(modToPlot$data$expr)),ceiling(max(modToPlot$data$expr)) + 2))
-      # }else{
-      #   plot(modToPlot, log= "", type=input$genePlotType, xlab = "Dose", ylab = "Expr",
-      #        ylim = c(floor(min(modToPlot$data$expr)),ceiling(max(modToPlot$data$expr)) + 2))
-      # }
-      # segments(x0 = geneBMD,y0 = 0, y1 = modToPlot$curve[[1]](geneBMD), x1 = geneBMD,lty = 3, col = "red", lwd = 3)
-      # segments(x0 = geneBMDL,y0 = 0, y1 = modToPlot$curve[[1]](geneBMD), x1 = geneBMDL,lty = 3, col = "green", lwd = 3)
-      # segments(x0 = geneBMDU,y0 = 0, y1 = modToPlot$curve[[1]](geneBMDU), x1 = geneBMDU,lty = 3, col = "blue", lwd = 3)
-      # segments(x0 = -1,y0 = modToPlot$curve[[1]](geneBMD), y1 = modToPlot$curve[[1]](geneBMD), x1 = geneBMD,lty = 3,col = "orange")
-      # 
-      # legend("top",  legend=c("BMD","BMDL","BMDU","BMR"), fill = c("red","green","blue","orange"), ncol=3,bty = "n")
-      
      }
     ggp
-    # text(x = geneBMD + 1, y = floor(min(modToPlot$data$expr)),labels = "BMD")
-    # text(x = geneBMDL + 1.1, y = floor(min(modToPlot$data$expr)),labels = "BMDL")
-    # text(x = geneBMDL, y = modToPlot$curve[[1]](geneBMD)+0.1,labels = "BMR 10%")
-    # text(x = geneBMDU, y = modToPlot$curve[[1]](geneBMD)+0.1,labels = "BMDU")
-    # 
-    #legend("topright",  legend=c("BMD","BMDL","BMR"), fill = c("red","green","yellow"))
-    
-    # plot(fm$opt_mod)
-    # # Changing x axis
-    # xtick<-c(0,5,10,20)
-    # axis(side=1, at=xtick, labels = FALSE)
-    # text(x=xtick,  par("usr")[3], 
-    #      labels = xtick, srt = 0, xpd = TRUE)
-    
+
   })
   
-  # output$bmd_fitting_legend = renderPlot({
-  #   if(length(input$BMD_table_rows_selected) == 0){
-  #     return(NULL)
-  #   }
-  #   selectedrowindex = input$BMD_table_rows_selected[length(input$BMD_table_rows_selected)]
-  #   selectedrowindex = as.numeric(selectedrowindex)
-  #   
-  #   plot(1, type="n", xlab="", ylab="", xlim=c(0, 10), ylim=c(0, 10), xaxt = "n", yaxt = "n", frame.plot = FALSE)
-  #   legend("top",  legend=c("BMD","BMDL","BMDU","BMR"), fill = c("red","green","blue","orange"), ncol=3)
-  # })
-  # 
+  output$bmd_fitting_legend = renderPlot({
+    if(length(input$BMD_table_rows_selected) == 0){
+      return(NULL)
+    }
+    selectedrowindex = input$BMD_table_rows_selected[length(input$BMD_table_rows_selected)]
+    selectedrowindex = as.numeric(selectedrowindex)
+
+    par(mar = c(0,0,0,0))
+    plot(1, type="n", xlab="", ylab="", xlim=c(0, 2), ylim=c(0, 2), xaxt = "n", yaxt = "n", frame.plot = FALSE)
+    legend("center",  legend=c("BMD","BMDL","BMDU","BMR"), fill = c("red","green","blue","orange"), ncol=4, bty = "n")
+  })
+
   
   observeEvent(input$upload_pheno_submit, {
     shiny::validate(

@@ -427,12 +427,13 @@ fluidPage(
                                      column(6,fluidRow(downloadButton("downloadBMDData", "Download")))
                                    ),
                                    fluidRow(
-                                     column(6,
+                                     column(12,
                                             DT::dataTableOutput("BMD_table")
-                                     ),
-                                     column(6,
-                                            shinycssloaders::withSpinner(plotOutput("bmd_fitting"), type = 6)
-                                   ))         
+                                     )),
+                                    fluidRow(
+                                      column(8,fluidRow(shinycssloaders::withSpinner(plotOutput("bmd_fitting"), type = 6))),
+                                      column(4,fluidRow(plotOutput("bmd_fitting_legend")))
+                                   )     
                           ),
                           tabPanel("Compare TP",
                                    tabPanel("Compare Time points",
