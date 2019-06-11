@@ -52,7 +52,7 @@ read_excel_allsheets <- function(filename, tibble = FALSE) {
 #' \item{var_genes}{genes passing the anova test}
 #' @export
 
-compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 6, dc = 5, sc = 1, adj.pval = TRUE, p.th=0.01){
+compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1, adj.pval = TRUE, p.th=0.01){
   if(tpc > ncol(pheno_data)) 
     stop("'time point column bigger than the size of the pheno data table!")
   
@@ -92,7 +92,7 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 6, dc = 5, sc = 1
       
       # Increment the progress bar, and update the detail text.
       #incProgress(1/nrow(exp_data), detail = paste("Anova Gene", i))
-      incProgress(1/nrow(exp_data), detail = paste("BMD Time Point: ",time_t," Gene: ",i ,"/",nrow(exp_data),sep=""))
+      incProgress(1/nrow(exp_data), detail = paste("ANOVA Time Point: ",time_t," Gene: ",i ,"/",nrow(exp_data),sep=""))
       
     }
   })

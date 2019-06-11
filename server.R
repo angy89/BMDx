@@ -1,6 +1,5 @@
 library(drc)
 library(bmd)
-#library(car)
 library(org.Hs.eg.db)
 library(org.Mm.eg.db)
 library(org.Rn.eg.db)
@@ -8,7 +7,6 @@ library(gProfileR)
 library(ggplot2)
 library(plotly)
 library(shiny)
-
 library(shinyjs)
 library(shinyBS)
 library(ggplotify)
@@ -29,24 +27,20 @@ library(shinycssloaders)
 library(zeallot)
 library(gplots)
 library(xlsx)
-
 library(tidyverse)
 library(gridExtra)
 library(grid)
 library(gtable)
 library(shinycssloaders)
+library(UpSetR)
 
 set.seed(12)
-
 load(file ="data/updated_kegg_hierarhcy.RData")
 load("data/mm_reactome_hierarchy.RData")
 load("data/hm_reactome_hierarchy.RData")
 load("data/rat_reactome_hierarchy.RData")
 load("data/rat_kegg_hyerarchy.RData")
 reduced_kegg_hierarchy = kegg_hierarchy
-
-
-#source("enrich_functions.R")
 source("functions/bmd_utilities.R")
 source("functions/path_grid_plot.R")
 source("functions/enrich_functions.R")
@@ -86,13 +80,8 @@ factorize_cols <- function(phTable, idx){
 
 
 shinyServer(function(input, output, session) {
-  
-  # shinyBS::updateCollapse(session, "bsSidebar2", close="LOAD EXPRESSION MATRIX")
-  # shinyBS::updateCollapse(session, "bsSidebar3", close="ANOVA FILTERING")
-  # shinyBS::updateCollapse(session, "bsSidebar4", close="COMPUTE BMD")
-  # shinyBS::updateCollapse(session, "bsSidebar5", close="PATHWAY ENRICHMENT")
-  # shinyBS::updateCollapse(session, "bsSidebar6", close="COMPARE TIMEPOINTS")
-  
+
+  # Global variable list
   gVars <- shiny::reactiveValues(
     phTable=NULL,             # setting pheno data matrix
     sampleColID = FALSE,      # setting sample column number
@@ -152,43 +141,26 @@ shinyServer(function(input, output, session) {
     if (is.null(gxFile))
       return(NULL)
     
-    sepS <- input$gxSepS
-    sepT <- input$gxSepT
-    sepChar=NULL
-    if(sepS=="OTHER"){
-      sepChar <- sepT
-    }else{
-      if(sepS=="TAB"){
-        sepChar="\t"
-      }else if(sepS=="SPACE"){
-        sepChar=" "
-      }else{
-        sepChar=sepS
-      }
-    }
-    print(sepChar)
-    
-    quote <- input$gxQuote
-    print(quote)
-    print(is.na(quote))
-    if(is.na(quote) || quote=="NA"){
-      quote <- ""
-    }else if(quote=="SINGLE"){
-      quote <- "'"
-    }else if(quote=="DOUBLE"){
-      quote <- '"'
-    }
-    
     print("Reading loaded gx File...")
-    gx <- read.csv(gxFile$datapath, row.names=1, header=TRUE, sep=sepChar, stringsAsFactors=FALSE, quote=quote, as.is=TRUE, strip.white=TRUE, check.names=FALSE)
-    print("Expression matrix uploaded. Dimensions: ") #############################
-    print(dim(gx))
+    
+    gx = read_excel_allsheets(filename = gxFile$datapath,tibble = FALSE)
+    for(i in 1:length(gx)){
+      gi = gx[[i]]
+      gi = as.matrix(gi)
+      
+      gii = matrix(0, nrow = nrow(gi), ncol = ncol(gi))
+      rownames(gii) = rownames(gi)
+      colnames(gii) = colnames(gi)
+      for(j in 1:nrow(gi)){
+        gii[j,] = as.numeric(gi[j,])
+      }
+      
+      gx[[i]] = gii
+    }
+    
     gVars$inputGx <- gx
     
-    # updateTextInput(session, "gxUploadDisp", value=gxFile$name)
-    # shinyBS::toggleModal(session, "importGxModal", toggle="close")
-    # shinyBS::updateButton(session, "import_gx_submit", style="success", icon=icon("check-circle"))
-    
+
     shinyBS::toggleModal(session, "importGxModal", toggle="close")
     shinyBS::updateButton(session, "import_expr_submit", style="success", icon=icon("check-circle"))
     shinyBS::updateCollapse(session, "bsSidebar1", open="ANOVA FILTERING", style=list("LOAD EXPRESSION MATRIX"="success","ANOVA FILTERING"="warning"))
@@ -205,19 +177,6 @@ shinyServer(function(input, output, session) {
     gx <- gx[rownames(gVars$dgxTable),]
     return(gx)
   })
-  
-  #gVars$dgxTable <- shiny::reactive({
-  #	print("Checking dgx File...")
-  #	dgxFile <- input$dgx
-  #	if (is.null(dgxFile))
-  #	return(NULL)
-  
-  #	print("Reading loaded dgx File...")
-  #	dgx <- read.csv(dgxFile$datapath, row.names=1, header=TRUE, sep="\t", check.names=FALSE, stringsAsFactors=FALSE, quote="")
-  #        dgx <- dgx[order(rownames(dgx)),,drop=F]
-  #        print(str(dgx))
-  #        dgx
-  #})
   
   gVars$inputDgx <- eventReactive(input$load_dgx_submit, {
     if(is.null(input$dgx))
@@ -306,160 +265,16 @@ shinyServer(function(input, output, session) {
   },server=TRUE)
   
   
+  #upload an excell file with N sheets such as the number of experiments that we are considering
   gVars$inputPh <- eventReactive(input$load_pheno_submit, {
     if(is.null(input$fPheno))
       return(NULL)
     
     phFile <- input$fPheno
-    sepS <- input$sepS
-    sepT <- input$sepT
-    sepChar <- NULL
-    
-    if(sepS=="OTHER"){
-      sepChar <- sepT
-    }else{
-      if(sepS=="TAB"){
-        sepChar <- "\t"
-      }else if(sepS=="SPACE"){
-        sepChar <- " "
-      }else{
-        sepChar <- sepS
-      }
-    }
-    
-    quote <- input$quote
-    if(is.na(quote) || quote=="NA"){
-      quote <- ""
-    }else if(quote=="SINGLE"){
-      quote <- "'"
-    }else if(quote=="DOUBLE"){
-      quote <- '"'
-    }
-    
-    rowNames <- NULL
-    con <- file(phFile$datapath, "r", blocking=FALSE)
-    fileLines <- readLines(con)
-    fileLines <- gsub("\t\t", "\tNA\t", fileLines)
-    fileLines <- gsub("\t$", "\tNA", fileLines)
-    close(con)
-    colNumByRowDist <- table(sapply(fileLines, function(x) {length(strsplit(x, sepChar)[[1]])}, USE.NAMES=F))
-    if(length(colNumByRowDist) > 1){
-      fileLines2 <- fileLines[-1]
-      colNumByRowDist2 <- table(sapply(fileLines2, function(x) {length(strsplit(x, sepChar)[[1]])}, USE.NAMES=F))
-      if(length(colNumByRowDist2) > 1){
-        shinyjs::info(paste0("Separating character '", sepChar, "', results in inconsistent number of columns!\n\nPlease check the input file format and select the correct separating character!"))
-        gVars$phLoaded <- NULL
-        return(NULL)
-      }
-      rowNames <- 1 #First column is taken as rownames if the first row has one less value. REDUNDANT
-    }
-    
-    #Define strings to identify NAs in the phenotype file while reading
-    naStr <- paste0(c("N", "n"), c("A", "a", "a", "A"))
-    naStr1 <- paste0("-", naStr ,"-")
-    naStr2 <- paste0("<", naStr ,">")
-    naStrAll <- c(naStr, naStr1, naStr2)
-    nullStrAll <- c("NULL", "null", "Null")
-    
     print("separator -->")
-    print(sepChar)
-    phTable <- read.csv(phFile$datapath, header=TRUE, sep=sepChar, stringsAsFactors=FALSE, quote=quote, as.is=TRUE, strip.white=TRUE, na.strings=c(naStrAll, "", "-", nullStrAll))
+    phTable = read_excel_allsheets(filename = phFile$datapath,tibble = FALSE)
+    
     gVars$phLoaded <- 1
-    
-    #Get column types
-    coltypes <- unlist(lapply(phTable, class))
-    print("coltypes")
-    print(coltypes)
-    print(table(coltypes))
-    
-    #Fix logical columns bullshit
-    coltypes.logical.idx <- which(coltypes=="logical")
-    if(length(coltypes.logical.idx)>0){
-      print("Phenotype contains logical columns!")
-      print(coltypes.logical.idx)
-      for(idx in as.vector(coltypes.logical.idx)){
-        print("Updating logical to character!")
-        print(colnames(phTable)[idx])
-        phTable[,idx] <- as.character(phTable[,idx])
-      }
-      coltypes <- unlist(lapply(phTable, class))
-    }
-    
-    coltypes.charOnly.idx <- which(coltypes=="character")
-    coltypes.nonChar.idx <- which(!coltypes=="character")
-    coltypes.charOnly.len <- length(coltypes.charOnly.idx)
-    coltypes.nonChar.len <- length(coltypes.nonChar.idx)
-    remInfo <- 0
-    remStr <- ""
-    
-    if(coltypes.charOnly.len>0){
-      phTable.charOnly <- phTable[, coltypes.charOnly.idx, drop=F]
-      print("dim(phTable.charOnly)")
-      print(dim(phTable.charOnly))
-      numCheck <- unlist(lapply(phTable.charOnly, function(col){if(suppressWarnings(all(is.na(as.numeric(col))))){1}else{0}}))
-      intCheck <- unlist(lapply(phTable.charOnly, function(col){if(suppressWarnings(all(is.na(as.integer(col))))){1}else{0}}))
-      doubleCheck <- unlist(lapply(phTable.charOnly, function(col){if(suppressWarnings(all(is.na(as.double(col))))){1}else{0}}))
-      allCheck <- numCheck+intCheck+doubleCheck
-      remInfo <- 0
-      remStr <- ""
-      if(all(allCheck==0)){
-        checkFailed <- names(allCheck[allCheck==0])
-        remInfo <- 1
-        remStr <- paste0("Following columns are removed because they contain mixed character and numeric data types:\n[",paste0(checkFailed, collapse=", "), "]\n\n")
-        if(coltypes.nonChar.len>0){
-          phTable.nonChar <- phTable[, coltypes.nonChar.idx, drop=F]
-          phTable.comb <- phTable.nonChar
-        }else{
-          remStr <- paste0(remStr, "No column survived filtering!!! Please define phenotype data columns with singular data type.")
-          shinyjs::info(remStr)
-          return(NULL)
-        }
-      }else{
-        if(any(allCheck==0)){
-          checkFailed <- names(allCheck[allCheck==0])
-          phTable.charOnly <- phTable.charOnly[,-which(colnames(phTable.charOnly) %in% checkFailed)]
-          remInfo <- 1
-          remStr <- paste0("Following columns are removed because they contain mixed character and numeric data types:\n[",paste0(checkFailed, collapse=", "), "]\n\n")
-        }
-        print("str(phTable) -- before:")
-        print(str(phTable))
-        #phTable.charOnly <- as.data.frame(apply(phTable.charOnly, 2, function(x){sapply(x, function(y){gsub("[ -]", "_", y)})}), stringsAsFactors=F)
-        phTable.charOnly <- as.data.frame(apply(phTable.charOnly, 2, function(x){res<-trimws(x); res<-gsub(" +", " ", res, perl=T); res<-gsub("[ -]", "_", res); return(res)}), stringsAsFactors=F)
-        if(coltypes.nonChar.len>0){
-          phTable.nonChar <- phTable[, coltypes.nonChar.idx, drop=F]
-          print("dim(phTable.nonChar)")
-          print(dim(phTable.nonChar))
-          phTable.comb <- data.frame(phTable.charOnly, phTable.nonChar, stringsAsFactors=FALSE)
-        }else{
-          phTable.comb <- phTable.charOnly
-        }
-      }
-      colOrgIdx <- sapply(colnames(phTable.comb), function(x){which(colnames(phTable) %in% x)})
-      phTable <- phTable.comb[,names(colOrgIdx[order(colOrgIdx)]), drop=F]
-    }
-    
-    print("str(phTable) -- check:")
-    print(str(phTable))
-    #Remove columns with single level data
-    nrlevels <- apply(phTable, 2, function(x){length(levels(factor(x)))})
-    nrlevels.singular <- which(nrlevels==1)
-    
-    # if(length(nrlevels.singular)>0){
-    #   remInfo <- 1
-    #   remStr <- paste0(remStr, "Following columns are removed because they contain only single repeated value:\n[",paste0(names(nrlevels.singular), collapse=", "), "]")
-    #   if(length(nrlevels.singular)==ncol(phTable)){
-    #     remStr <- paste0(remStr, "\n\nNo column survived filtering!!! Please define phenotype data columns with singular data type.")
-    #     shinyjs::info(remStr)
-    #     return(NULL)
-    #   }
-    #   col2rem <- which(colnames(phTable) %in% names(nrlevels.singular))
-    #   phTable <- phTable[,-col2rem, drop=F]
-    # }
-    
-    # #Inform user with the columns removed from the data frame
-    # if(remInfo==1){
-    #   shinyjs::info(remStr)
-    # }
     print("str(phTable) -- after:")
     print(str(phTable))
     
@@ -470,7 +285,7 @@ shinyServer(function(input, output, session) {
     if(is.null(gVars$inputPh()))
       return(NULL)
     
-    phTable <- gVars$inputPh()
+    phTable <- gVars$inputPh()[[1]]
     colNames <- list("c"=NULL,"n"=NULL)
     coltypes <- unlist(lapply(phTable, class))
     coltypes.charOnly.idx <- which(coltypes=="character")
@@ -491,7 +306,7 @@ shinyServer(function(input, output, session) {
     if(is.null(gVars$inputPh())){
       nRow <- "NA"
     }else{
-      nRow <- nrow(gVars$inputPh())
+      nRow <- nrow(gVars$inputPh()[[1]])
     }
     return(paste0("Samples: ", nRow))
   })
@@ -500,7 +315,7 @@ shinyServer(function(input, output, session) {
     if(is.null(gVars$inputPh())){
       nCol <- "NA"
     }else{
-      nCol <- ncol(gVars$inputPh())
+      nCol <- ncol(gVars$inputPh()[[1]])
     }
     return(paste0("Variables: ", nCol))
   })
@@ -508,8 +323,8 @@ shinyServer(function(input, output, session) {
   gVars$phColChoices <- reactive({
     if(is.null(gVars$phLoaded))
       return(c("NA"))
-    
-    choicesVec <- seq(1,ncol(gVars$inputPh()))
+    phenoList = gVars$inputPh()
+    choicesVec <- seq(1,ncol(phenoList[[1]]))
     choicesNames <- paste0("Variable ", choicesVec)
     names(choicesVec) <- choicesNames
     return(choicesVec)
@@ -519,7 +334,9 @@ shinyServer(function(input, output, session) {
     # if(is.null(gVars$phTable))
     #   return(NULL)
     
-    phTable <- gVars$inputPh()
+    
+    phenoList = gVars$inputPh()
+    phTable <- phenoList[[1]]
     colnames(phTable) <- paste0(colnames(phTable), " [", c(1:ncol(phTable)), "]")
     DT::datatable(phTable, filter="none",
                   options = list(
@@ -536,15 +353,14 @@ shinyServer(function(input, output, session) {
     shiny::validate(
       need(!is.null(gVars$inputPh()), "No phenotype file!")
     )
-    
-    phTable <- gVars$inputPh()
+    phenoList = gVars$inputPh()
+    phTable <- phenoList[[1]]
     colNames <- paste0(colnames(phTable), " [", c(1:ncol(phTable)), "]")
     colTypesList <- gVars$phColTypes()
     print(str(colTypesList))
     colClass <- unlist(lapply(phTable, class))
     print(str(colClass))
-    #colTypesDF <- data.frame(Column=colNames, Type="-", Class=colClass, t(head(phTable)), stringsAsFactors=FALSE)
-    #colnames(colTypesDF)[c(4:ncol(colTypesDF))] <- paste0("Row", c(1:(ncol(colTypesDF)-3)))
+
     colTypesDF <- data.frame(Variable=colNames, Type="-", Class=colClass, t(head(phTable)), stringsAsFactors=FALSE)
     colnames(colTypesDF)[c(4:ncol(colTypesDF))] <- paste0("Sample", c(1:(ncol(colTypesDF)-3)))
     if(!is.null(colTypesList[["c"]])){
@@ -563,17 +379,7 @@ shinyServer(function(input, output, session) {
         colTypesDF[nIdx,"Type"] <- "vector"
       }
     }
-    print("Making rhandsontable...")
-    #rhandsontable::rhandsontable(colTypesDF, rowHeaders=NULL, readOnly=TRUE, contextMenu=FALSE, stretchH="all") %>%
     rhandsontable::rhandsontable(colTypesDF, rowHeaders=NULL, readOnly=TRUE, contextMenu=FALSE) %>%
-      #hot_cols(renderer = "function (instance, td, row, col, prop, value, cellProperties) {
-      #        Handsontable.renderers.NumericRenderer.apply(this, arguments);
-      #        if (value == 'factor') {
-      #                    td.style.background = 'lightblue';
-      #        } else if (value == 'vector') {
-      #                    td.style.background = 'lightgreen';
-      #        }
-      #}") %>%
       hot_col("Type", readOnly=FALSE, type="dropdown", source=c("factor","vector"),
               renderer = "function (instance, td, row, col, prop, value, cellProperties) {
               Handsontable.renderers.NumericRenderer.apply(this, arguments);
@@ -595,10 +401,6 @@ shinyServer(function(input, output, session) {
         need(!is.null(gVars$inputGx), "No Expression File Provided!")
       )
       
-      # shiny::validate(
-      #   need(!is.null(gVars$phTable), "No Pheno Data file!")
-      # )
-      
       timep = unique(gVars$phTable[,gVars$TPColID])
       EXP_FIL_List = list()
       VG_List = list()
@@ -619,14 +421,12 @@ shinyServer(function(input, output, session) {
       
       print("no anova")
       
-     # shinyBS::toggleModal(session, "computeAnova", toggle="close")
       shinyBS::updateButton(session, "anova_filtering_button", style="success", icon=icon("check-circle"))
       shinyBS::updateButton(session, "skip_anova_filtering_button", style="success", icon=icon("check-circle"))
       
       shinyBS::updateCollapse(session, "bsSidebar1", open="COMPUTE BMD", style=list("ANOVA FILTERING"="success","COMPUTE BMD"="warning"))
       
-     # shiny::updateTabsetPanel(session, "display",selected = "AnovaTab")
-      
+
   })
   
   observeEvent(input$anova_analysis, {
@@ -638,81 +438,73 @@ shinyServer(function(input, output, session) {
       need(!is.null(gVars$inputGx), "No Phenotype File Provided!")
     )
     
-    # shiny::validate(
-    #   need(!is.null(gVars$phTable), "No Pheno Data file!")
-    # )
-
     EXP_FIL_List = list()
     VG_List = list()
     NVG_List = list()
     PValMat_List = list()
     
-    if(input$time_point_id == "All"){
-      print("Multiple Time points")
-      timep = unique(gVars$phTable[,gVars$TPColID])
-      print(timep)
-      # ii = which(timep %in% "All")
-      # timep = timep[-ii]
+    withProgress(message = 'Running ANOVA', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
       
-      for(tp in  timep){
-        print(tp)
+    
+    for(i in 1:length(gVars$phTable)){
+      
+      pTable = gVars$phTable[[i]]
+      timep = unique(pTable[,gVars$TPColID])
+      
+      if(input$time_point_id == "All"){
+        for(tp in  timep){
+          print(tp)
+          pvalues_genes = compute_anova(exp_data = gVars$inputGx[[i]], #[runif(n = 500,min = 1,max = nrow(gVars$inputGx)),], # TOGLIERE LA SELEZIONE RANDOM DEI GENI
+                                        pheno_data=gVars$phFactor[[i]], 
+                                        time_t=tp,
+                                        tpc = gVars$TPColID, 
+                                        dc = gVars$doseColID, 
+                                        sc = gVars$sampleColID)
+          
+          c(EXP_FIL, var_genes, not_var_genes,PValMat) %<-% filter_anova(exp_data=gVars$inputGx[[i]], 
+                                                                         pvalues_genes=pvalues_genes, 
+                                                                         adj.pval = input$adjBool, 
+                                                                         p.th=as.numeric(input$anovaPvalTh))
+          
+          EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = EXP_FIL
+          VG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = var_genes
+          NVG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = not_var_genes
+          PValMat_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = PValMat
+        }
+      }else{
         pvalues_genes = compute_anova(exp_data = gVars$inputGx, #[runif(n = 500,min = 1,max = nrow(gVars$inputGx)),], # TOGLIERE LA SELEZIONE RANDOM DEI GENI
-                                                                       pheno_data=gVars$phTable, 
-                                                                       time_t=tp,
-                                                                       tpc = gVars$TPColID, 
-                                                                       dc = gVars$doseColID, 
-                                                                       sc = gVars$sampleColID)
+                                      pheno_data=gVars$phTable, 
+                                      time_t=input$time_point_id,
+                                      tpc = gVars$TPColID, 
+                                      dc = gVars$doseColID, 
+                                      sc = gVars$sampleColID)
         
         c(EXP_FIL, var_genes, not_var_genes,PValMat) %<-% filter_anova(exp_data=gVars$inputGx, 
                                                                        pvalues_genes=pvalues_genes, 
                                                                        adj.pval = input$adjBool, 
                                                                        p.th=as.numeric(input$anovaPvalTh))
-        
-        EXP_FIL_List[[as.character(tp)]] = EXP_FIL
-        VG_List[[as.character(tp)]] = var_genes
-        NVG_List[[as.character(tp)]] = not_var_genes
-        PValMat_List[[as.character(tp)]] = PValMat
+        EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = EXP_FIL
+        VG_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = var_genes
+        NVG_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = not_var_genes
+        PValMat_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = PValMat
       }
-    }else{
-      print("Specific timepoint")
-      print(input$time_point_id)
       
-      pvalues_genes = compute_anova(exp_data = gVars$inputGx, #[runif(n = 500,min = 1,max = nrow(gVars$inputGx)),], # TOGLIERE LA SELEZIONE RANDOM DEI GENI
-                                                                     pheno_data=gVars$phTable, 
-                                                                     time_t=input$time_point_id,
-                                                                     tpc = gVars$TPColID, 
-                                                                     dc = gVars$doseColID, 
-                                                                     sc = gVars$sampleColID)
+      incProgress(1/length(gVars$phTable), detail = paste("ANOVA Experiment: ",i," Experiment: ",i ,"/",length(gVars$phTable),sep=""))
       
-      c(EXP_FIL, var_genes, not_var_genes,PValMat) %<-% filter_anova(exp_data=gVars$inputGx, 
-                                                                     pvalues_genes=pvalues_genes, 
-                                                                     adj.pval = input$adjBool, 
-                                                                     p.th=as.numeric(input$anovaPvalTh))
-      EXP_FIL_List[[as.character(input$time_point_id)]] = EXP_FIL
-      VG_List[[as.character(input$time_point_id)]] = var_genes
-      NVG_List[[as.character(input$time_point_id)]] = not_var_genes
-      PValMat_List[[as.character(input$time_point_id)]] = PValMat
     }
     
+})
     
     gVars$EXP_FIL = EXP_FIL_List # EXP_FIL
     gVars$var_genes = VG_List #var_genes
     gVars$not_var_genes = NVG_List #not_var_genes
     gVars$PValMat= PValMat_List #PValMat
-    
-    print("anova computed")
-    print(length(gVars$PValMat))
-    
-    #print(length(var_genes))
-    
+
     shinyBS::toggleModal(session, "computeAnova", toggle="close")
     shinyBS::updateButton(session, "anova_filtering_button", style="success", icon=icon("check-circle"))
     shinyBS::updateButton(session, "skip_anova_filtering_button", style="success", icon=icon("check-circle"))
     shinyBS::updateCollapse(session, "bsSidebar1", open="COMPUTE BMD", style=list("ANOVA FILTERING"="success","COMPUTE BMD"="warning"))
-    
     shiny::updateTabsetPanel(session, "display",selected = "AnovaTab")
-    
-
   })
   
 
@@ -725,135 +517,220 @@ shinyServer(function(input, output, session) {
       need(!is.null(gVars$EXP_FIL), "No Phenotype File Provided!")
     )
     
-    print("Max dose-->")
-    print(input$max_dose_input)
-    nTP = length(gVars$EXP_FIL)
-    
-    print("N Time points -->")
-    print(nTP)
-    
+    withProgress(message = 'Running BMD', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
     MQ_BMDList = list()
     MQ_BMDListFiltered = list()
     MQ_BMDListFilteredValues = list()
     
-    for(i in 1:nTP){
+    for(j in 1:length(gVars$phTable)){
       
-      print(names(gVars$EXP_FIL)[i])
-      print("Nrow gene exp -->")
-      print(dim(gVars$EXP_FIL[[i]]))
-      print("Selected Models")
-      print( as.numeric(input$ModGroup))
-      MQ_BMDList[[names(gVars$EXP_FIL)[i]]]  = compute_bmd(exp_data=gVars$EXP_FIL[[i]], pheno_data=gVars$phTable,
-                            time_t=names(gVars$EXP_FIL)[i], #interval_type = input$Interval,
-                            tpc = gVars$TPColID, 
-                            dc = gVars$doseColID, 
-                            sc = gVars$sampleColID, sel_mod_list = as.numeric(input$ModGroup),rl = as.numeric(input$RespLev))
-                            #,Kd = as.integer(input$Power), hillN=as.integer(input$Hill_pow), pow = as.integer(input$Hill_kd))
-      print("Max dose -->")
-      print(as.numeric(input$max_dose_input))
+      pTable = gVars$phTable[[j]]
+      timep = unique(pTable[,gVars$TPColID])
+      print(timep)
       
-      print("pvalue th -->")
-     # print(as.numeric(input$LOF))
+      maxDose = max(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
+      
+      for(i in timep){
+        
+        MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
+                              time_t=as.character(i), #interval_type = input$Interval,
+                              tpc = gVars$TPColID, 
+                              dc = gVars$doseColID, 
+                              sc = gVars$sampleColID, sel_mod_list = as.numeric(input$ModGroup),rl = as.numeric(input$RespLev))
 
-      MQ_BMDListFiltered[[names(gVars$EXP_FIL)[i]]]  = BMD_filters(MQ_BMDList[[names(gVars$EXP_FIL)[i]]],max_dose = as.numeric(input$max_dose_input), loofth = as.numeric(input$LOOF))
-      MQ_BMDListFilteredValues[[names(gVars$EXP_FIL)[i]]]  =  MQ_BMDListFiltered[[names(gVars$EXP_FIL)[i]]]$BMDValues_filtered
+        MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose), loofth = as.numeric(input$LOOF))
+        MQ_BMDListFilteredValues[[names(gVars$phTable)[j]]][[as.character(i)]]  =  MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]$BMDValues_filtered
+      }
+      incProgress(1/length(gVars$phTable), detail = paste("BMD Experiment: ",j," Experiment: ",j ,"/",length(gVars$phTable),sep=""))
+      
     }
-    
-    #print("Saving results")
-    #save(MQ_BMDListFilteredValues, file = "../ListMQ_BMDListFilteredValues,RData")
-    
+    })
+
     gVars$MQ_BMD = MQ_BMDList
     gVars$MQ_BMD_filtered = MQ_BMDListFiltered
     gVars$MQ_BMDListFilteredValues = MQ_BMDListFilteredValues
-    
-    print("BMD computed")
-
-    #print(length(gVars$MQ_BMD_filtered))
+    gVars$MQ_BMD_filtered2 = gVars$MQ_BMD_filtered
     
     shinyBS::toggleModal(session, "computeBMD", toggle="close")
     shinyBS::updateButton(session, "bmd_button", style="success", icon=icon("check-circle"))
     shinyBS::updateCollapse(session, "bsSidebar1", open="PATHWAY ENRICHMENT", style=list("COMPUTE BMD"="success","PATHWAY ENRICHMENT"="warning"))
-
     shiny::updateTabsetPanel(session, "display",selected = "BMDTab")
+  })
+  
+  output$upsetplot = renderPlot({
+    print(input$range)
+    print(class(input$range[1]))
+    
+    # if(is.null(gVars$GList) || is.null(gVars$pheno)){
+    #   print('no input')
+    #   return(NULL)
+    # }
+    shiny::validate(
+      need(!is.null(gVars$MQ_BMD_filtered), "No BMD performed!")
+    )
+    
+    GList = list()
+    index = 1
+    
+    for(j in names(gVars$EXP_FIL)){ # for each experiment
+      
+      pTable = gVars$phTable[[j]]
+      timep = unique(pTable[,gVars$TPColID])
+      print(timep)
+      
+      for(i in timep){
+        BMDFilMat = gVars$MQ_BMD_filtered[[j]][[as.character(i)]]$BMDValues_filtered
+        
+        genelist = BMDFilMat[,c("Gene","BMD")]
+        GList[[paste(j,as.character(i),sep="_")]] = genelist
+        index = index + 1
+        
+        print(i)
+      }   
+    }
+    
+    #print(input$range)
+    
+    th1 = input$range[1]/100 #0
+    th2 = input$range[2]/100 #10
+     
+    listUpset = list()
+    for(i in 1:length(GList)){
+      
+      mini = quantile(GList[[i]][,2],probs = th1)
+      maxi = quantile(GList[[i]][,2],probs = th2)
+      idx = which(GList[[i]][,2]>= mini & GList[[i]][,2]<= maxi)
+      listUpset[[names(GList)[i]]] = as.character(GList[[i]][idx,1])
+    }
+    
+    # drugs = unlist(lapply(X = strsplit(names(listUpset),split = "_"), FUN = function(elem)elem[1]))
+    # TP = unlist(lapply(X = strsplit(names(listUpset),split = "_"), FUN = function(elem)elem[2]))
+    # 
+    # drcolor = rainbow(length(unique(drugs)))
+    # names(drcolor) = unique(drugs)
+    upset(fromList(listUpset),nsets = length(listUpset),nintersects = input$maxInt, group.by = input$groupby,order.by = input$orderby)
+   # upset(fromList(listUpset),nsets = length(listUpset),nintersects = 50,group.by = "sets",order.by = "freq")
     
   })
   
+  output$downloadFunmapponeInput <- downloadHandler(
+    
+    filename = function() {
+      paste("input_funmappone.xlsx", sep = "")
+    },
+    content = function(file) {
+      
+      if(is.null(gVars$GList) || is.null(gVars$pheno)){
+        print('no input')
+        
+        return(NULL)
+      }
+      print('Thank you for clicking')
+      
+      shinyjs::html(id="loadingText", "Saving tables")
+      shinyjs::show(id="loading-content")
+      on.exit({
+        print("inside on exit")
+        shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
+      })
+      
+      print("I'm saving anova tables")
+      
+      write.xlsx(gVars$GList[[1]], file, sheetName = names(gVars$GList)[1], row.names = FALSE) 
+      
+      if(length(gVars$GList)>1){
+        for(i in 2:length(gVars$GList)){
+          write.xlsx(gVars$GList[[i]], file, sheetName = names(gVars$GList)[i], append = TRUE, row.names = FALSE) 
+        }
+      }
+      
+      write.xlsx(gVars$pheno, file, sheetName = "Groups", append = TRUE, row.names = FALSE) 
+      
+      
+      print("Funmappone input stored!")
+    }
+  )
   
 
   observeEvent(input$enrichment_analysis, {
-    
     shiny::validate(
       need(!is.null(gVars$MQ_BMD_filtered), "No BMD performed!")
     )
     shinyjs::html(id="loadingText", "COMPUTING ENRICHMENT")
     shinyjs::show(id="loading-content")
+    
+    # thrs = input$filterBMD
+    # print(thrs)
+    
     print("Enrichment Analysis")
-    nTP = length(gVars$EXP_FIL)
+    nExp = length(gVars$EXP_FIL)
     
     EnrichRes = list()
     
     tryCatch(
       {
-    
       GList = list()
-      for(i in 1:nTP){
-        
-        BMDFilMat = gVars$MQ_BMD_filtered[[names(gVars$EXP_FIL)[i]]]$BMDValues_filtered
-        #genelist = as.character(BMDFilMat[,1])
-        genelist = BMDFilMat[,c("Gene","BMD")]
-        GList[[names(gVars$EXP_FIL)[i]]] = genelist
-        print("Compute Gene List ")
-        print(i)
-        
-      }     
+      grouping_experiment = c()
+      grouping_TP = c()
+      grouping_unique = c()
+      index = 1
       
-      print(head(GList[[1]]))
-      print("Organism: ---------------->>>>>>>>>")
-      print(input$organism)
-      print("annType: ---------------->>>>>>>>>")
-      print(input$idtype)
-      
+      for(j in names(gVars$EXP_FIL)){ # for each experiment
+        
+        pTable = gVars$phTable[[j]]
+        timep = unique(pTable[,gVars$TPColID])
+        print(timep)
+        
+        for(i in timep){
+          BMDFilMat = gVars$MQ_BMD_filtered[[j]][[as.character(i)]]$BMDValues_filtered
+          
+          # tths = quantile(BMDFilMat[,"BMD"],probs = thrs/100)
+          # iidx = which(BMDFilMat[,"BMD"]>=tths[1] & BMDFilMat[,"BMD"]<=tths[2])
+          
+          genelist = BMDFilMat[,c("Gene","BMD")]
+          GList[[paste(j,as.character(i),sep="_")]] = genelist
+          grouping_experiment = c(grouping_experiment,j)
+          grouping_TP = c(grouping_TP,as.character(i))
+          grouping_unique = c(grouping_unique,index)
+          index = index + 1
+          
+          print(i)
+        }   
+      }
+  
       organism = input$organism
       annType = input$idtype
-      #save(GList, organism, annType, file = "../enrichData.RData")
 
         GList = convert_genes(organism = input$organism, GList=GList, annType = input$idtype)
+        Mp = cbind(names(GList),1:length(GList),grouping_experiment,grouping_TP)  #DF[[length(DF)]]
+        #Mp = cbind(names(GList),grouping)  #DF[[length(DF)]]
         
-        print("gene converted")
-        Mp = cbind(names(GList),1:length(GList))  #DF[[length(DF)]]
-        colnames(Mp) = c("Chemical","Grouping")
+        colnames(Mp) = c("Chemical","Grouping", "Experiment","Timepoint")
         pheno = cbind(Mp[,2],Mp[,1])
+        
+        save(GList, pheno, file = "funmapponeInput.RData")
         
         gVars$GList = GList
         gVars$pheno = pheno
         gVars$exp_ann = gVars$pheno
-        
-        print("Pheno group")
-        print(gVars$pheno)
-        
+
         DTa = matrix("",ncol = length(GList),nrow = max(unlist(lapply(GList, FUN = nrow))))
         for(i in 1:(length(GList))){
           gli = as.character(GList[[i]][,1])
           if(length(gli)>0) DTa[1:nrow(GList[[i]]),i]= gli
         }
         
-        print(dim(DTa))
-        
         colnames(DTa) = names(GList)
         
         if(is.null(DTa)){
-          #return(NULL)
           gVars$DATA = NULL
         }else{
           gVars$DATA = DTa
         }
-        
 
-        print("I'm working....")
         gVars$toPlot <- NULL # refresh plot map in the Plot Maps tab
         gVars$clust_mat <- NULL
         gVars$KEGG_MAT <- NULL
-        
         
         DAT = gVars$DATA   
         if(input$organism == "Mouse"){          
@@ -889,28 +766,19 @@ shinyServer(function(input, output, session) {
         reactome_hierarchy=unique(reactome_hierarchy)
         
         # Compute enrichment
-        
         annType = input$EnrichType
         GOType = input$GOType
         
-        #annType = "KEGG"
-        #GOType = "BP"
-        
         if(annType=="KEGG"){
-          #EnrichDatList = all_KEGG  
           gVars$hierarchy = kegg_hierarchy
           type_enrich = "KEGG"
-          
         }
         if(annType=="REACTOME"){
-          #EnrichDatList = all_REACT 
           type_enrich = "REAC"
           gVars$hierarchy = reactome_hierarchy
-          
         }
         if(annType=="GO"){
           if(GOType == "BP"){
-            #EnrichDatList = all_GO_BP
             #create geograph object
             makeGOGraph(ont = "bp") -> geograph
             #convert graphNEL into igraph
@@ -920,7 +788,6 @@ shinyServer(function(input, output, session) {
             #set root as BP root term
             root = "GO:0008150"
             type_enrich = "GO:BP"
-            
           }
           if(GOType == "CC"){
             #EnrichDatList = all_GO_CC
@@ -940,16 +807,13 @@ shinyServer(function(input, output, session) {
           }
         }
         
-        
         GL = gVars$GList
         pval = as.numeric(input$pvalueTh)
         adjust_method = input$pcorrection
         org = org_enrich
         type = type_enrich
         print("Before enrichment")
-        #save(GL, type, org, pval, adjust_method, file = "../BeforeEnrichDatList.RData")
-        
-        #EnrichDatList = lapply(GL,enrich,type,org,pval,"bonferroni",sig = FALSE, mis = 0, only_annotated = FALSE)
+
         if(input$pcorrection == "none"){ 
           print("Nominal PValue")
           #as.numeric(input$pvalueTh)
@@ -964,12 +828,8 @@ shinyServer(function(input, output, session) {
           EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),input$pcorrection, sig = TRUE, mis = as.numeric(input$min_intersection),only_annotated=input$only_annotated)
         }
         
-        #save(EnrichDatList, file = "EnrichDatList.RData")
-        
-        #EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),input$pcorrection, sig = TRUE)
         gVars$EnrichDatList = EnrichDatList
         
-        #save(EnrichDatList,file = "../EnrichDatList.RData")
         print("After enrichment")
         
         if(input$EnrichType == "GO"){
@@ -1125,43 +985,6 @@ shinyServer(function(input, output, session) {
         shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
        })
     
-    #   print(genelist)
-    #   GList = convert_genes(organism = input$organism, GList=genelist, annType = input$idtype)
-    #   print(GList)
-    #   
-    #   print(input$EnrichType)
-    #   print(input$organism)
-    #   print(input$pvalueTh)
-    #   print(input$pcorrection)
-    #   
-    #   ER = enrich(geneList=GList, type = input$EnrichType, org=input$organism, pval=as.numeric(input$pvalueTh), adjust_method=input$pcorrection)
-    #   
-    #   print("Enrichment Result ----- >>>>>")
-    #   print(head(ER))
-    #   print(dim(ER))
-    #   
-    #   BMD = c()
-    #   BMDL = c()
-    #   
-    #   # compute mean BMD and BMDL for every set
-    #   for(i in 1:nrow(ER)){
-    #     gi = unlist(strsplit(x = ER[1,2],split = ","))
-    #     idx = which(BMDFilMat[,1] %in% gi)
-    #     BMD = c(BMD,mean(as.numeric(BMDFilMat[idx,"BMD"])))
-    #     BMDL = c(BMDL,mean(as.numeric(BMDFilMat[idx,"BMDL"])))
-    #     
-    #   }
-    #   
-    #   EnrichRes[[names(gVars$EXP_FIL)[i]]] = cbind(ER, BMD, BMDL)
-    # }
-    # 
-    # print(head(EnrichRes[[1]]))
-    # gVars$EnrichRes = EnrichRes
-    # 
-    # print("BMD Enrichment computed")
-    # 
-    # print(length(gVars$EnrichRes))
-    # 
     shinyBS::toggleModal(session, "enrichPathways", toggle="close")
     shinyBS::updateButton(session, "enrich_button", style="success", icon=icon("check-circle"))
     shinyBS::updateCollapse(session, "bsSidebar1", open="COMPARE TIMEPOINTS", style=list("PATHWAY ENRICHMENT"="success","TIMEPOINTS"="warnings"))
@@ -1176,7 +999,6 @@ shinyServer(function(input, output, session) {
     if(is.null(gVars$EnrichRes))
       return(NULL)
     
-    #enr_tab <- gVars$EnrichRes[[1]]
     enr_tab <- gVars$EnrichRes[[input$time_point_id_visual3]]
     print(head(enr_tab))
  
@@ -1189,11 +1011,8 @@ shinyServer(function(input, output, session) {
     )
     
   })
-  #pvalues_genes
-  
+
   output$downloadAnovaData <- downloadHandler(
-    #if(is.null(gVars$PValMat)){return(NULL)}
-    
     filename = function() {
       paste("anova_table.xlsx", sep = "")
     },
@@ -1276,19 +1095,10 @@ shinyServer(function(input, output, session) {
     print("TP da analizzare:")
     print(input$time_point_id_visual)
     
-   # Anova_tab <-gVars$PValMat[[1]]
-    Anova_tab <- gVars$PValMat[[input$time_point_id_visual]]
+    Anova_tab <- gVars$PValMat[[input$experiment_anova]][[input$time_point_id_visual]]
     print(head(Anova_tab))
-    # isVariable = as.numeric(Anova_tab[,2]) <= as.numeric(input$anovaPvalTh)
-    # print(isVariable)
-    # Anova_tab = cbind(Anova_tab, isVariable)
     print(head(Anova_tab))
     
-    # for(i in 1:nrow(Anova_tab)){
-    #   if(Anova_tab[i,3]){
-    #     Anova_tab[i,1] = paste("<strong>",Anova_tab[i,1],"</strong>",sep="")
-    #   }
-    # }
     print(head(Anova_tab))
     gVars$Anova_tab=Anova_tab
     DT::datatable(Anova_tab, filter="top",
@@ -1324,7 +1134,8 @@ shinyServer(function(input, output, session) {
     
 
     #Anova_tab <-gVars$PValMat[[1]]
-    Anova_tab <- gVars$PValMat[[input$time_point_id_visual]]
+    #Anova_tab <- gVars$PValMat[[input$time_point_id_visual]]
+    Anova_tab <- gVars$PValMat[[input$experiment_anova]][[input$time_point_id_visual]]
     
     print("Nomi time points: ")
     print(names(gVars$PValMat))
@@ -1373,8 +1184,12 @@ shinyServer(function(input, output, session) {
       if(nrow(ERi)==0) next
       
       print(ERi)
+      elemn = names(ER)[i]
+      exper = strsplit(x = elemn, split = "_")[[1]][1]
+      timep = strsplit(x = elemn, split = "_")[[1]][2]
       
-      BMDFilMat = gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered #filtered BMD genes
+      BMDFilMat = gVars$MQ_BMD_filtered[[exper]][[as.character(timep)]]$BMDValues_filtered #filtered BMD genes
+      
       if(!is.null(BMDFilMat) & nrow(ERi)>0){
         
         for(npat in 1:nrow(ER[[i]])){
@@ -1395,12 +1210,14 @@ shinyServer(function(input, output, session) {
           levidx = which(Hier[,"ID"] %in% goID)
           levName = as.character(Hier[levidx[1],1])
           
-          PD = rbind(PD, cbind(names(gVars$MQ_BMD_filtered)[i],PatName,PatPval, bmd, NGenes, levName))
+          #PD = rbind(PD, cbind(names(gVars$MQ_BMD_filtered)[i],PatName,PatPval, bmd, NGenes, levName))
+          PD = rbind(PD, cbind(exper, timep, PatName,PatPval, bmd, NGenes, levName))
+          
         }
       }
     }
     
-    colnames(PD) = c("TimePoint","FunCategory", "Adj.pval","MeanBMD","NGenes", "LevName")
+    colnames(PD) = c("Experiment","TimePoint","FunCategory", "Adj.pval","MeanBMD","NGenes", "LevName")
     PD = as.data.frame(PD)
     PD$TimePoint = factor(PD$TimePoint, level=sort(as.numeric(as.vector(unique(PD$TimePoint)))))
     PD$Adj.pval = as.numeric(as.vector(PD$Adj.pval))
@@ -1410,7 +1227,7 @@ shinyServer(function(input, output, session) {
     PD$NGenes = as.numeric(as.vector(PD$NGenes))
     gVars$MeanBMDTimePoint = PD
     ggp = ggplot(data=PD, aes(MeanBMD, fill=TimePoint)) + 
-      geom_histogram()
+      geom_histogram() + facet_grid(. ~ Experiment)
     
     ggplotly(ggp)
     
@@ -1435,8 +1252,11 @@ shinyServer(function(input, output, session) {
       if(nrow(ERi)==0) next
       
       print(ERi)
+      elemn = names(ER)[i]
+      exper = strsplit(x = elemn, split = "_")[[1]][1]
+      timep = strsplit(x = elemn, split = "_")[[1]][2]
       
-      BMDFilMat = gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered #filtered BMD genes
+      BMDFilMat = gVars$MQ_BMD_filtered[[exper]][[as.character(timep)]]$BMDValues_filtered #filtered BMD genes
       if(!is.null(BMDFilMat) & nrow(ERi)>0){
    
           for(npat in 1:nrow(ER[[i]])){
@@ -1455,12 +1275,12 @@ shinyServer(function(input, output, session) {
           levidx = which(Hier[,"ID"] %in% goID)
           levName = as.character(Hier[levidx[1],1])
           
-          PD = rbind(PD, cbind(names(gVars$MQ_BMD_filtered)[i],PatName,PatPval, bmd, NGenes, levName))
+          PD = rbind(PD, cbind(exper, timep,PatName,PatPval, bmd, NGenes, levName))
         }
     }
     }
     
-    colnames(PD) = c("TimePoint","FunCategory", "Adj.pval","MeanBMD","NGenes", "LevName")
+    colnames(PD) = c("Experiment","TimePoint","FunCategory", "Adj.pval","MeanBMD","NGenes", "LevName")
     PD = as.data.frame(PD)
     PD$TimePoint = factor(PD$TimePoint, level=sort(as.numeric(as.vector(unique(PD$TimePoint)))))
     PD$Adj.pval = as.numeric(as.vector(PD$Adj.pval))
@@ -1469,14 +1289,14 @@ shinyServer(function(input, output, session) {
     PD$logPval = -log(PD$Adj.pval)
     PD$NGenes = as.numeric(as.vector(PD$NGenes))
     gVars$MeanBMDTimePoint = PD
-    save(PD, file = "../pathway_bubble.RData")
+    #save(PD, file = "../pathway_bubble.RData")
     
     p <- PD %>%
      ggplot(aes(MeanBMD,logPval, label = FunCategory, color = LevName, size = NGenes)) + # color=FunCategory
       geom_point() +
       scale_x_log10() +
       theme_bw() + labs(x = "Mean BMD", y = "-log(P.Value)") +
-      facet_grid(. ~ TimePoint)
+      facet_grid(Experiment ~ TimePoint)
     
     ggplotly(p)
   })
@@ -1559,7 +1379,9 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
-    BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    
+    #BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
     #save(BMD_tab, file="BMD_table.RData")
     
     DF = c()
@@ -1567,7 +1389,7 @@ shinyServer(function(input, output, session) {
       print(BMD_tab[[i]]$BMDValues_filtered)
       if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
         if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-          DF = rbind(DF, cbind(names(gVars$MQ_BMD_filtered)[i],
+          DF = rbind(DF, cbind(names(BMD_tab)[i],
                            BMD_tab[[i]]$BMDValues_filtered[,"BMD"],
                            BMD_tab[[i]]$BMDValues_filtered[,"BMDL"],
                            as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"])))
@@ -1600,15 +1422,14 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
-    BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
-    #save(BMD_tab, file="BMD_table.RData")
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
     
     DF = c()
     for(i in 1:length(BMD_tab)){ # for each time point
       print(BMD_tab[[i]]$BMDValues_filtered)
       if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
         if(nrow((BMD_tab[[i]]$BMDValues_filtered))>=1){
-          xx = cbind(names(gVars$MQ_BMD_filtered)[i],as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]))
+          xx = cbind(names(BMD_tab)[i],as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]))
           print(xx)
           DF = rbind(DF, xx)
         }
@@ -1643,33 +1464,26 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
-    BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
-    #save(BMD_tab, file="BMD_table.RData")
     
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+
     DF = c()
     for(i in 1:length(BMD_tab)){ # for each time point
       print(BMD_tab[[i]]$BMDValues_filtered)
       if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
         if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
           
-          mi = rbind(cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"], as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]),"BMD"),
-                cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMDL"],  as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]),"BMDL"),
-                cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMDU"],  as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]), "BMDU"))
+          mi = rbind(cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"],   as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]),"BMD"),
+                     cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMDL"],  as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]),"BMDL"),
+                     cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMDU"],  as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]), "BMDU"))
           
           DF = rbind(DF, mi)
-          # DF = rbind(DF, cbind(names(gVars$MQ_BMD_filtered)[i],
-          #                      BMD_tab[[i]]$BMDValues_filtered[,"BMD"],
-          #                      BMD_tab[[i]]$BMDValues_filtered[,"BMDL"],
-          #                      BMD_tab[[i]]$BMDValues_filtered[,"BMDU"],
-          #                      BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]))
         }
       }
     }
     colnames(DF) = c("TimePoint", "Value","Model","ValueType")
     print(head(DF))
     DF = as.data.frame(DF)
-    
-    save(DF, file = "../BMD_BMDL_BMDU_by_model.RData")
     
     DF$TimePoint = factor(DF$TimePoint, level=sort(as.numeric(as.vector(unique(DF$TimePoint)))))
     DF$ValueType = factor(DF$ValueType, level=c("BMDL","BMD","BMDU"))
@@ -1681,82 +1495,13 @@ shinyServer(function(input, output, session) {
     
   })
   
-  
-  # output$bmd_th_min = renderUI({
-  #   
-  #   if(is.null(gVars$MQ_BMD_filtered)){ 
-  #     print("Null BMD")
-  #     return(NULL)
-  #   }
-  # 
-  #   print("in BMD_dist_TP --------------------->>>>>>>>>>>>>>>>>>>>>")
-  #   BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
-  #   
-  #   DF = c()
-  #   for(i in 1:length(BMD_tab)){
-  #     print(BMD_tab[[i]]$BMDValues_filtered)
-  #     if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-  #       if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-  #         xx = cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"])
-  #         print(xx)
-  #         DF = rbind(DF, xx)
-  #       }
-  #     }
-  #   }
-  #   
-  #   print(head(DF))
-  #   colnames(DF) = c("TimePoint", "BMD")
-  #   
-  #   DF = as.data.frame(DF)
-  #   DF$TimePoint = factor(DF$TimePoint, level=sort(as.numeric(as.vector(unique(DF$TimePoint)))))
-  #   DF$BMD = as.numeric(as.vector(DF$BMD))
-  #   
-  #   sliderInput("bmd_th", "Min Th:",
-  #               min = min(DF$BMD), max = max(DF$BMD), value = min(DF$BMD)
-  #   )
-  # })
-  # 
-  # output$bmd_th_max = renderUI({
-  #   if(is.null(gVars$MQ_BMD_filtered)){ 
-  #     print("Null BMD")
-  #     return(NULL)
-  #   }
-  #   
-  #   print("in BMD_dist_TP --------------------->>>>>>>>>>>>>>>>>>>>>")
-  #   BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
-  #   
-  #   DF = c()
-  #   for(i in 1:length(BMD_tab)){
-  #     print(BMD_tab[[i]]$BMDValues_filtered)
-  #     if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-  #       if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-  #         xx = cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"])
-  #         print(xx)
-  #         DF = rbind(DF, xx) 
-  #       }
-  #     }
-  #   }
-  #   
-  #   print(head(DF))
-  #   colnames(DF) = c("TimePoint", "BMD")
-  #   
-  #   DF = as.data.frame(DF)
-  #   DF$TimePoint = factor(DF$TimePoint, level=sort(as.numeric(as.vector(unique(DF$TimePoint)))))
-  #   DF$BMD = as.numeric(as.vector(DF$BMD))
-  #   
-  #   
-  #   sliderInput("bmd_th", "Max Th:",
-  #               min = min(DF$BMD), max = max(DF$BMD), value = max(DF$BMD)
-  #   )
-  # })
-  
   output$BMD_dist_TP = renderPlotly({
     if(is.null(gVars$MQ_BMD_filtered)){ 
       print("Null BMD")
       return(NULL)
     }
     print("in BMD_dist_TP --------------------->>>>>>>>>>>>>>>>>>>>>")
-    BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
 
     DF = c()
     for(i in 1:length(BMD_tab)){
@@ -1764,7 +1509,7 @@ shinyServer(function(input, output, session) {
       
       if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
         if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-          xx = cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"])
+          xx = cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"])
           print(xx)
           DF = rbind(DF, xx)
         }
@@ -1800,14 +1545,13 @@ shinyServer(function(input, output, session) {
       print("Null BMD")
       return(NULL)
     }
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
     
-    BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
-
     DF = c()
     for(i in 1:length(BMD_tab)){
       if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
         if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-          DF = rbind(DF, cbind(names(gVars$MQ_BMD_filtered)[i],BMD_tab[[i]]$BMDValues_filtered[,"LOFPVal"]))
+          DF = rbind(DF, cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"LOFPVal"]))
         }
       }
     }
@@ -1830,15 +1574,17 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    
     GL = list()
     NG = c()
-    for(i in 1:length(gVars$MQ_BMD_filtered)){
-      BMD_tab <- gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-      if(!is.null(BMD_tab) & nrow(BMD_tab)>0){
-        GL[[names(gVars$MQ_BMD_filtered)[i]]] =  BMD_tab[,"Gene"]
-        NG = rbind(NG, c(names(gVars$MQ_BMD_filtered)[i], nrow(BMD_tab)))
+    for(i in 1:length(BMD_tab)){
+      BMD_tab2 <- BMD_tab[[i]]$BMDValues_filtered
+      if(!is.null(BMD_tab2) & nrow(BMD_tab2)>0){
+        GL[[names(BMD_tab)[i]]] =  BMD_tab2[,"Gene"]
+        NG = rbind(NG, c(names(BMD_tab)[i], nrow(BMD_tab2)))
       }else{
-        NG = rbind(NG, c(names(gVars$MQ_BMD_filtered)[i], 0))
+        NG = rbind(NG, c(names(BMD_tab)[i], 0))
       }
     }
     
@@ -1858,43 +1604,15 @@ shinyServer(function(input, output, session) {
   output$gene_bmd_plot = renderPlotly({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
 
-    # GL = list()
-    # for(i in 1:length(gVars$MQ_BMD_filtered)){
-    #   BMD_tab <- gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-    #   if(!is.null(BMD_tab) & nrow(BMD_tab)>0){
-    #     GL[[names(gVars$MQ_BMD_filtered)[i]]] =  BMD_tab[,"Gene"]
-    #   }
-    # }
-    # 
-    # ItemsList = venn(GL)
-    # ItemsList = attr(ItemsList,"intersections")
-    # innerset = unlist(strsplit(x = names(ItemsList)[[length(ItemsList)]],split = ":"))
-    # 
-    # BMD_gene = c()
-    # XX = c()
-    # for(i in innerset){
-    #   x = gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered
-    #   rownames(x) = as.character(x[,1])
-    #   XX = rbind(XX,cbind(x[ItemsList[[length(ItemsList)]],c("Gene","BMD")],i))
-    #   BMD_gene = cbind(BMD_gene,x[ItemsList[[length(ItemsList)]],"BMD"])
-    # }
-    # 
-    # colnames(XX) = c("Gene","BMD","TimePoint")
-    # XX = as.data.frame(XX)  
-    # colnames(BMD_gene) = innerset
-    # rownames(BMD_gene) = as.character(x[ItemsList[[length(ItemsList)]],"Gene"])
-    # 
-    # hls = hclust(as.dist(1-cor(t(BMD_gene))), method = input$geneClustMeth)
-    # plot(hls)
-    # 
-    # cls = cutree(hls, as.numeric(input$geneClust))
-    # XX = cbind(XX, cls[as.character(as.vector(XX[,1]))])
-    # colnames(XX)[4] = "Cluster"
-    if(length(gVars$MQ_BMD_filtered)>1){
+    print("gene_bmd_plot")
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+
+    
+    if(length(BMD_tab)>1){
       
-      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
       
-      c(XX, hls, BMD_gene) %<-% create_gene_bmd_dataframe_and_cluster_genes_by_bmd(bmd_list=gVars$MQ_BMD_filtered,
+      c(XX, hls, BMD_gene) %<-% create_gene_bmd_dataframe_and_cluster_genes_by_bmd(bmd_list=BMD_tab,
                                                                                    ItemsList=ItemsList,
                                                                                    hmethod=input$geneClustMeth, 
                                                                                    nclust=as.numeric(input$geneClust),
@@ -1911,9 +1629,13 @@ shinyServer(function(input, output, session) {
   
   output$nclustvenn <- renderUI({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    print("nclustvenn")
     
-    if(length(gVars$MQ_BMD_filtered)>1){
-      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    
+    
+    if(length(BMD_tab)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
       
       if(is.null(input$input$intersectionName)){
         ng = length(ItemsList[[length(ItemsList)]])
@@ -1929,9 +1651,13 @@ shinyServer(function(input, output, session) {
   
   output$intersectionNameUI <- renderUI({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    print("intersectionNameUI")
     
-    if(length(gVars$MQ_BMD_filtered)>1){
-      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    
+    
+    if(length(BMD_tab)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
       
       ng = length(ItemsList[[length(ItemsList)]])
       selectInput(inputId = "intersectionName", label = "Select Gene Set",choices = as.list(names(ItemsList)), selected = names(ItemsList)[[length(ItemsList)]])
@@ -1945,8 +1671,11 @@ shinyServer(function(input, output, session) {
   output$VennDF = DT::renderDataTable({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
     
-    if(length(gVars$MQ_BMD_filtered)>1){
-      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    
+    
+    if(length(BMD_tab)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
       gVars$ItemsList = ItemsList
       
       df = build_dataframe_from_genes_in_venn_diagrams(ItemsList)
@@ -1966,9 +1695,13 @@ shinyServer(function(input, output, session) {
 
   output$NGVenn = renderPlot({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    print("NGVenn")
     
-    if(length(gVars$MQ_BMD_filtered)>1){
-      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(gVars$MQ_BMD_filtered)
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    
+    
+    if(length(BMD_tab)>1){
+      c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
       gVars$ItemsList = ItemsList
       gVars$GL = GL
       par(mar = c(0,0,0,0))
@@ -2037,16 +1770,45 @@ shinyServer(function(input, output, session) {
     }
   )
   
+  output$ExptimeSelBMD <- renderUI({
+    if(is.null(gVars$EXP_FIL)){
+      return(NULL)
+    }
+    print("Rending UI: ")
+    print(names(gVars$EXP_FIL))
+    print(min(as.numeric(names(gVars$EXP_FIL))))
+    
+    selectInput("experiment_bmd", "Experiment", choices=names(gVars$EXP_FIL), selected = names(gVars$EXP_FIL)[1])#c("All",unique(gVars$phTable[,gVars$TPColID])))
+  })
+  
+  output$timePointSel2 <- renderUI({
+    if(is.null(input$experiment_bmd)){
+      return(NULL)
+    }
+    
+    print("Rending UI: ")
+    print(input$experiment_bmd)
+    #print(min(as.numeric(names(gVars$EXP_FIL))))
+    
+    expList = gVars$EXP_FIL[[input$experiment_bmd]]
+    
+    selectInput("time_point_id_visual2", "Time Points", choices=names(expList), selected = min(as.numeric(names(expList))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
+  })
+  
+  
+  
   output$BMD_table <- DT::renderDataTable({
     if(is.null(gVars$MQ_BMD_filtered)){ 
       print("Null BMD")
       return(NULL)
     }
-
-    #BMD_tab <- gVars$MQ_BMD_filtered[[1]]$BMDValues_filtered
+    print("BMD_tab")
+ 
+    gVars$MQ_BMD_filtered = gVars$MQ_BMD_filtered2
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered
     
+    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
+  
     BMD_tab = BMD_tab#[,1:5]
     print("printing BMD table")
     print(head(BMD_tab))
@@ -2073,26 +1835,25 @@ shinyServer(function(input, output, session) {
     selectedrowindex = input$BMD_table_rows_selected[length(input$BMD_table_rows_selected)]
     selectedrowindex = as.numeric(selectedrowindex)
     
+    BMDVF = gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
     
-    BMDVF = gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered
-    
-    geneName = as.character(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Gene"])
-    geneBMD = as.numeric(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMD"])
-    geneBMDL = as.numeric(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDL"])
-    geneBMDU = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDU"]))
-    modName = as.character(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"MOD_NAME"])
-    icval = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"IC50/EC50"]))
-    decreasing = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Decreasing"]))
+    geneName = as.character(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Gene"])
+    geneBMD = as.numeric(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMD"])
+    geneBMDL = as.numeric(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDL"])
+    geneBMDU = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDU"]))
+    modName = as.character(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"MOD_NAME"])
+    icval = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"IC50/EC50"]))
+    decreasing = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Decreasing"]))
     
     print(paste("Selected rows --> ", selectedrowindex))
     print(paste("Selected rows gene name--> ", geneName))
     
     #NB: in all three lines I was using 1 before, instead of input$time_point_id_visual
-    print(names(gVars$MQ_BMD[[input$time_point_id_visual2]]$opt_models_list))
-    print(geneName %in% names(gVars$MQ_BMD[[input$time_point_id_visual2]]$opt_models_list))
+    print(names(gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list))
+    print(geneName %in% names(gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list))
     
     #Select mod to plot
-    modToPlot = gVars$MQ_BMD[[input$time_point_id_visual2]]$opt_models_list[[geneName]]$opt_mod
+    modToPlot = gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list[[geneName]]$opt_mod
    # modToPlot = fm$CD163$opt_mod
     print("Class optimal model ------------------>>>>>>>>>>>>>>> ")
     class(modToPlot)
@@ -2196,7 +1957,6 @@ shinyServer(function(input, output, session) {
     )
     
     phTable <- gVars$inputPh()
-    arrType <- input$arrType
     doseColID <- NULL
     TPColID <- NULL
     sampleColID <- as.integer(input$sampleIDCol)
@@ -2208,27 +1968,30 @@ shinyServer(function(input, output, session) {
     TPColID <- as.integer(input$TPCol)
     gVars$TPColID = TPColID # setting time point ID column in the variable list
     
-    fileNameColID <- as.integer(input$fileNameCol)
+    #fileNameColID <- as.integer(input$fileNameCol)
     doseColName <- NULL
     TPColName <- NULL
-    sampleColName <- colnames(phTable)[as.integer(input$sampleIDCol)]
-    fileNameColName <- colnames(phTable)[as.integer(input$fileNameCol)]
+    sampleColName <- lapply(phTable, FUN = function(elem){colnames(elem)[as.integer(input$sampleIDCol)]})
+    sampleIDs = lapply(1:length(phTable), FUN = function(i)phTable[[i]][sampleColName[[i]]])
     
-    #sampleIDs <- phTable[,sampleColID]
-    sampleIDs <- phTable[,sampleColName]
-    if(any(duplicated(sampleIDs))){
-      shinyjs::info(paste0("Sample IDs are not unique!\n\nPlease check the phenotype data and ensure that the selected Sample ID column has unique values!"))
-      return(NULL)
-    }else if(any(sampleIDs=="") || any(sampleIDs==" ") || any(is.na(sampleIDs))){
-      shinyjs::info(paste0("Sample IDs contain BLANK and/or NA values!\n\nPlease check the phenotype data and ensure that the selected Sample ID column has complete information!"))
-      return(NULL)
+    for(i in 1:length(phTable)){
+      if(any(duplicated(sampleIDs[[i]]))){
+        shinyjs::info(paste0("Sample IDs are not unique!\n\nPlease check the phenotype data and ensure that the selected Sample ID column has unique values!"))
+        return(NULL)
+      }else if(any(sampleIDs[[i]]=="") || any(sampleIDs[[i]]==" ") || any(is.na(sampleIDs[[i]]))){
+        shinyjs::info(paste0("Sample IDs contain BLANK and/or NA values!\n\nPlease check the phenotype data and ensure that the selected Sample ID column has complete information!"))
+        return(NULL)
+      }
     }
     
-    #Make sample ID column character
-    if(is.integer(phTable[,sampleColName])){
-      print("Updating sample ID column from integer to character!")
-      phTable[,sampleColName] <- as.character(phTable[,sampleColName])
+    for(i in 1:length(phTable)){
+      #Make sample ID column character
+      if(is.integer(phTable[[i]][,sampleColName[[i]]])){
+        print("Updating sample ID column from integer to character!")
+        phTable[[i]][,sampleColName[[i]]] <- as.character(phTable[[i]][,sampleColName[[i]]])
+      }
     }
+
     
     #Create factorized phTable
     print("Create factorized phTable")
@@ -2240,8 +2003,8 @@ shinyServer(function(input, output, session) {
     print(factorIdx)
     factorCols <- NULL
     if(length(factorIdx)>0){
-      factorCols <- colnames(phTable)[factorIdx]
-      phFactor <- factorize_cols(phTable, factorIdx)
+      factorCols <- lapply(phTable, FUN = function(elem) colnames(elem)[factorIdx])
+      phFactor <- lapply(1:length(phTable), FUN = function(i) factorize_cols(phTable[[i]], factorIdx))
     }else{
       phFactor <- phTable
     }
@@ -2253,11 +2016,11 @@ shinyServer(function(input, output, session) {
     gVars$factorCols <- factorCols
     gVars$doseColID <- doseColID
     gVars$TPColID <- TPColID
-    gVars$fileNameColID <- fileNameColID
+    #gVars$fileNameColID <- fileNameColID
     gVars$sampleColID <- sampleColID
     gVars$doseColName <- doseColName
     gVars$TPColName <- TPColName
-    gVars$fileNameColName <- fileNameColName
+    #gVars$fileNameColName <- fileNameColName
     gVars$sampleColName <- sampleColName
     gVars$totalSamples <- nrow(phTable)
     gVars$filteredSamples <- nrow(phTable)
@@ -2553,7 +2316,7 @@ shinyServer(function(input, output, session) {
     if(is.null(gVars$phTable))
       return(NULL)
     
-    phTable <- gVars$phTable
+    phTable <- gVars$phTable[[1]]
     DT::datatable(phTable, filter="none",
                   options = list(
                     search = list(regex=TRUE, caseInsensitive=FALSE),
@@ -2573,7 +2336,7 @@ shinyServer(function(input, output, session) {
     
     print(gVars$inputGx)
 
-    inputGx <- gVars$inputGx
+    inputGx <- gVars$inputGx[[1]]
     DT::datatable(inputGx, filter="none",
                   options = list(
                     search = list(regex=TRUE, caseInsensitive=FALSE),
@@ -2651,8 +2414,14 @@ shinyServer(function(input, output, session) {
     shiny::validate(
       need(!is.null(gVars$phTable), "No Pheno Data file!")
     )
+    print("Ciao")
+    if(length(gVars$phTable)>1){
+      selectInput("time_point_id", "Time Points", choices=c("All"))
+      
+    }else{
+      selectInput("time_point_id", "Time Points", choices=c("All",unique(gVars$phTable[[1]][,gVars$TPColID])))
+    }
     
-    selectInput("time_point_id", "Time Points", choices=c("All",unique(gVars$phTable[,gVars$TPColID])))
   })
   
 
@@ -2704,15 +2473,25 @@ shinyServer(function(input, output, session) {
     )
   })
   
-  output$MaxDose <- renderUI({
-    shiny::validate(
-      need(!is.null(gVars$phTable), "No Pheno Data file!")
-    )
-    selectInput("max_dose_input", "Maximum dose", choices=unique(gVars$phTable[,gVars$doseColID]), selected = max(as.numeric(unique(gVars$phTable[,gVars$doseColID]))))
-  })
+  # output$MaxDose <- renderUI({
+  #   shiny::validate(
+  #     need(!is.null(gVars$phTable), "No Pheno Data file!")
+  #   )
+  #   selectInput("max_dose_input", "Maximum dose", choices=unique(gVars$phTable[[input$experiment_BMD]][,gVars$doseColID]), selected = max(as.numeric(unique(gVars$phTable[[input$experiment_BMD]][,gVars$doseColID]))))
+  # })
+
 
   
+  
+  output$ExptimeSelAnova <- renderUI({
+    if(is.null(gVars$EXP_FIL)){
+      return(NULL)
+    }
+    print("Rending UI: ")
+    print(names(gVars$EXP_FIL))
 
+    selectInput("experiment_anova", "Experiment", choices=names(gVars$EXP_FIL), selected = names(gVars$EXP_FIL)[1])#c("All",unique(gVars$phTable[,gVars$TPColID])))
+  })
   
   output$timePointSel <- renderUI({
     if(is.null(gVars$EXP_FIL)){
@@ -2722,8 +2501,13 @@ shinyServer(function(input, output, session) {
     print(names(gVars$EXP_FIL))
     print(min(as.numeric(names(gVars$EXP_FIL))))
     
-    selectInput("time_point_id_visual", "Time Points", choices=names(gVars$EXP_FIL), selected = min(as.numeric(names(gVars$EXP_FIL))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
+    expList = gVars$EXP_FIL[[input$experiment_anova]]
+    
+    selectInput("time_point_id_visual", "Time Points", choices=names(expList), 
+                selected = min(as.numeric(names(expList))))
   })
+  
+
   
   output$timePointSelPat <- renderUI({
     if(is.null(gVars$EnrichDatList)){
@@ -2737,29 +2521,18 @@ shinyServer(function(input, output, session) {
     selectInput("time_point_id_visualPat", "Time Points", choices=names(gVars$EnrichDatList), selected = min(as.numeric(names(gVars$EnrichDatList))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
   })
   
-  output$timePointSel2 <- renderUI({
-    if(is.null(gVars$EXP_FIL)){
-      return(NULL)
-    }
-    
-    print("Rending UI: ")
-    print(names(gVars$EXP_FIL))
-    print(min(as.numeric(names(gVars$EXP_FIL))))
-    
-    selectInput("time_point_id_visual2", "Time Points", choices=names(gVars$EXP_FIL), selected = min(as.numeric(names(gVars$EXP_FIL))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
-  })
-  
-  output$timePointSel3 <- renderUI({
-    if(is.null(gVars$EXP_FIL)){
-      return(NULL)
-    }
-    
-    print("Rending UI: ")
-    print(names(gVars$EXP_FIL))
-    print(min(as.numeric(names(gVars$EXP_FIL))))
-    
-    selectInput("time_point_id_visua32", "Time Points", choices=names(gVars$EXP_FIL), selected = min(as.numeric(names(gVars$EXP_FIL))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
-  })
+
+  # output$timePointSel3 <- renderUI({
+  #   if(is.null(gVars$EXP_FIL)){
+  #     return(NULL)
+  #   }
+  #   
+  #   print("Rending UI: ")
+  #   print(names(gVars$EXP_FIL))
+  #   print(min(as.numeric(names(gVars$EXP_FIL))))
+  #   
+  #   selectInput("time_point_id_visua32", "Time Points", choices=names(gVars$EXP_FIL), selected = min(as.numeric(names(gVars$EXP_FIL))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
+  # })
   
   output$chose_lev1 <- renderUI({
     print("Render gui")

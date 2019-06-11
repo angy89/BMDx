@@ -99,13 +99,6 @@ fluidPage(
                                                          
                                                   )
                                                 )       
-                                                
-                                                # fluidRow(
-                                                #   column(12, align="center",
-                                                #          shinyBS::bsButton("skip_anova_filtering_button", label="Skip Anova Filtering", style="danger", icon=icon("exclamation-circle")),
-                                                #          shinyBS::bsTooltip("skip_anova_filtering_button", "Skip the anova filtering!", placement="bottom")
-                                                #   )
-                                                # )
                                 ),
                                 bsCollapsePanel("COMPUTE BMD", style="danger",
                                                 fluidRow(
@@ -123,16 +116,7 @@ fluidPage(
                                                   )
                                                 )
                                 )
-                                # bsCollapsePanel("TIMEPOINTS", style="danger",
-                                #                 fluidRow(
-                                #                   column(12, align="center",
-                                #                          shinyBS::bsButton("tp_button", label="TP Comparison", style="danger", icon=icon("exclamation-circle")),
-                                #                          shinyBS::bsTooltip("tp_button", "Launch a graphical to window to compare timepoints!", placement="bottom")
-                                #                   )
-                                #                 )
-                                # )
                      )
-
     ),
     dashboardBody(
       shinyBS::bsModal("enrichPathways", "Enrichment", "enrich_button", size="large",
@@ -152,13 +136,6 @@ fluidPage(
                                   
                                   
                            )
-                           # column(4,
-                           #        fileInput("file1", "3) Choose Excel File",
-                           #                  multiple = FALSE,
-                           #                  accept = c("text/csv/xlsx",
-                           #                             "text/comma-separated-values,text/plain/excel",
-                           #                             ".xlsx")))
-                           
                          )
                        ),
                        tags$h5("2. Functional annotation parameters"),
@@ -192,7 +169,6 @@ fluidPage(
                        ),
                        tags$h5("3. Display parameters"),
                        wellPanel(
-                         # Horizontal line ----
                          fluidRow(
                            
                            column(6,radioButtons("aggregation","Aggregation Function",
@@ -211,47 +187,34 @@ fluidPage(
                          fluidRow(column(6,radioButtons("continuous","Plot modification",
                                                         choices = c(value = "continuous",
                                                                     sign = "discrete"),
-                                                        selected = "continuous")),
-                                 # column(6,actionButton("computePathways","Generate Map"))
-                                  column(6,  shinyBS::bsButton("enrichment_analysis", label="Run Enrichment", style="info", icon=icon("hand-o-right")))
+                                                        selected = "continuous"))
                                  )
                         
-                       )
+                       ),
+                       tags$h5("4. Filter BMD Values"),
+                       wellPanel(
+                         fluidRow(
+                           #column(6, sliderInput("filterBMD", "BMD values Filter:", min = 0, max = 100,value = c(0,100))),
+                           column(6,  shinyBS::bsButton("enrichment_analysis", label="Run Enrichment", style="info", icon=icon("hand-o-right")))
+                                  
+                         )
+                       ),
+                       tags$h5("5. Download gene lists as excel file"),
+                       downloadButton("downloadFunmapponeInput", "Download")
       ),
       shinyBS::bsModal("computeBMD", "Compute BMD Value", "bmd_button", size="large",
                        fluidRow(
-                         column(3,
-                                uiOutput("MaxDose")
-                         ),column(3,
-                                  selectInput("LOOF", "Lack-of-fit PValue Th:", choices=c(0.3,0.2,0.1,0.05),selected=0.1)
-                        ),
-                        # column(3,
-                        #        selectInput("Interval", "Interval type:", choices=c("none","delta","fls"),selected="delta")
-                        #  ),
-                        #column(3, selectInput("RespLev","Response Level",choices = seq(10,90,10), selected = 10))
+                        column(3,selectInput("LOOF", "Lack-of-fit PValue Th:", choices=c(0.3,0.2,0.1,0.05),selected=0.1)),
                         column(3, textInput("RespLev", label = "Response Level", value =1.349))
-                        
                        ),
                        fluidRow(
                          column(12,selectInput("BMDSettings", "Select the BMD analysis setting", choices=c("All","Regulatory","Degree of Freedom", "Custom"),selected="Custom"))
                        ),
                        fluidRow(
-                         column(12,
-                                wellPanel(
-                                    uiOutput("bmd_checkbox")
-                                )
-                                )
+                         column(12,wellPanel(uiOutput("bmd_checkbox")))
                        ),
-                       # fluidRow(
-                       #   column(3, textInput("Power", label = "Power value", value =2)),
-                       #   column(3, textInput("Hill_pow", label = "Hill power", value =2)),
-                       #   column(3, textInput("Hill_kd", label = "Hill Kd", value =10))
-                       # ),
-                       
                        fluidRow(
-                         column(12, align="right",
-                                shinyBS::bsButton("bmd_analysis", label="Run BMD", style="info", icon=icon("hand-o-right"))
-                         )
+                         column(12, align="right",shinyBS::bsButton("bmd_analysis", label="Run BMD", style="info", icon=icon("hand-o-right")))
                        ),
                        fluidRow(
                          column(12,
@@ -306,61 +269,34 @@ fluidPage(
                                     )
                          )
                          )
-                       
       ),
       shinyBS::bsModal("computeAnova", "Filter Genes by Anova", "anova_filtering_button", size="large",
                        fluidRow(
-                        column(3,
-                                  uiOutput("timePoint")
-                         ),column(3,
-                                  radioButtons("adjBool", "Pvalue:",
-                                               c("FDR" = TRUE,
-                                                 "Nominal" = FALSE))
-                         ),
-                        column(3,
-                               selectInput("anovaPvalTh", "Anova PValue Th:", choices=c(0.05,0.04,0.03,0.02,0.01))
-                        )
+                        column(3, uiOutput("timePoint")),
+                        column(3, radioButtons("adjBool", "Pvalue:", c("FDR" = TRUE,"Nominal" = FALSE))),
+                        column(3, selectInput("anovaPvalTh", "Anova PValue Th:", choices=c(0.05,0.04,0.03,0.02,0.01)))
                        ),fluidRow(
-                         column(12, align="right",
-                                shinyBS::bsButton("anova_analysis", label="Run Anova", style="info", icon=icon("hand-o-right"))
-                         )
+                         column(12, align="right",shinyBS::bsButton("anova_analysis", label="Run Anova", style="info", icon=icon("hand-o-right")))
                        )                       
       ),
       shinyBS::bsModal("importGxModal", "Import Gene Expression Table", "import_expr_submit", size="large",
                        fluidRow(
-                         column(3,
-                                fileInput("gx", label="File")
-                         ),column(3,
-                                  uiOutput("selGxSep")
-                         ),column(3,
-                                  textInput("gxSepT", "Other Seperator", value=":")
-                         ),column(3,
-                                  uiOutput("selGxQuote")
-                         )
+                         column(3,fileInput("gx", label="File"))
+                         #column(3,uiOutput("selGxSep")),
+                         #column(3,textInput("gxSepT", "Other Seperator", value=":")),
+                         #column(3,uiOutput("selGxQuote"))
                        ),fluidRow(
-                         column(12, align="right",
-                                shinyBS::bsButton("upload_gx_submit", label="Import", style="info", icon=icon("hand-o-right"))
-                         )
+                         column(12, align="right",shinyBS::bsButton("upload_gx_submit", label="Import", style="info", icon=icon("hand-o-right")))
                        )
       ),
       shinyBS::bsModal("importPhenoModal", "Import Phenotype Data", "import_pheno_submit", size="large",
-                       fluidRow(
-                         column(3,
-                                fileInput("fPheno", label="Phenotype File")
-                         ),column(3,
-                                  uiOutput("selSep")
-                         ),column(3,
-                                  textInput("sepT", "Other Seperator", value=":")
-                         ),column(3,
-                                  uiOutput("selQuote")
-                         )
+                       fluidRow(column(3, fileInput("fPheno", label="Phenotype File"))
+                                #column(3, uiOutput("selSep")),
+                                #column(3, textInput("sepT", "Other Seperator", value=":")),
+                                #column(3, uiOutput("selQuote"))
                        ),fluidRow(
-                         column(1,
-                                actionButton("load_pheno_submit", "Preview")
-                         ),column(2, align="left",
-                                  textOutput("phRowsText"),
-                                  textOutput("phColsText")
-                         )
+                         column(3,actionButton("load_pheno_submit", "Preview")),
+                         column(2, align="left", textOutput("phRowsText"),textOutput("phColsText"))
                        ),hr(),
                        fluidRow(
                          column(12,
@@ -371,50 +307,29 @@ fluidPage(
                                              )
                                            ),hr(),
                                            fluidRow(
-                                             column(4,
-                                                      uiOutput("selSampleIDCol")
-                                             ),column(4,
-                                                      uiOutput("selDoseCol")
-                                             ),column(4,
-                                                      uiOutput("selTPCol")
-                                             )
-                                           ),fluidRow(
-                                             column(12, align="right",
-                                                    shinyBS::bsButton("upload_pheno_submit", label="Import", style="info", icon=icon("hand-o-right"))
-                                             )
-                                           )
+                                             column(4, uiOutput("selSampleIDCol")),
+                                             column(4, uiOutput("selDoseCol")),
+                                             column(4, uiOutput("selTPCol"))
+                                           ),fluidRow(column(12, align="right",shinyBS::bsButton("upload_pheno_submit", label="Import", style="info", icon=icon("hand-o-right"))))
                                 ))
                          )
                        )
       ),
       fluidRow(column(12,
         tabBox(id="display", title="", width=12,
-               tabPanel(value="pdTab", title="Phenotype Data",
-                        fluidRow(
-                          column(12,
-                                 DT::dataTableOutput("filtered")
-                          )
-                        )
-               ),
+               tabPanel(value="pdTab", title="Phenotype Data",fluidRow(column(12,DT::dataTableOutput("filtered")))),
                tabPanel(value="gExpTab", title="Gene Expression Matrix",
-                        fluidRow(
-                          column(12,
-                                 DT::dataTableOutput("gExpMat")
-                          )
-                        )
+                        fluidRow(column(12,DT::dataTableOutput("gExpMat")))
                ),
                tabPanel(value="AnovaTab", title="Anova",
                         fluidRow(
-                          column(6,uiOutput("timePointSel")),
-                          column(6,downloadButton("downloadAnovaData", "Download"))
+                          column(4,uiOutput("ExptimeSelAnova")),
+                          column(4,uiOutput("timePointSel")),
+                          column(4,downloadButton("downloadAnovaData", "Download"))
                         ),
                         fluidRow(
-                          column(6,
-                             DT::dataTableOutput("Anova_table")
-                          ),
-                          column(6,
-                                 fluidRow(shinycssloaders::withSpinner(plotOutput("anovaPlot"), type = 6))
-                          )
+                          column(6,DT::dataTableOutput("Anova_table")),
+                          column(6,fluidRow(shinycssloaders::withSpinner(plotOutput("anovaPlot"), type = 6)))
                         )
                ),
                tabPanel(value="BMDTab", title="BMD",
@@ -423,13 +338,14 @@ fluidPage(
                         #tabsetPanel(
                           tabPanel("Gene Level", 
                                    fluidRow(
-                                     column(6,uiOutput("timePointSel2")),
-                                     column(6,fluidRow(downloadButton("downloadBMDData", "Download")))
+                                     column(4,uiOutput("ExptimeSelBMD")),
+                                     column(4,uiOutput("timePointSel2")),
+                                     column(4,downloadButton("downloadBMDData", "Download"))
                                    ),
+                                   
                                    fluidRow(
-                                     column(12,
-                                            DT::dataTableOutput("BMD_table")
-                                     )),
+                                     column(12, DT::dataTableOutput("BMD_table"))
+                                     ),
                                     fluidRow(
                                       column(8,fluidRow(shinycssloaders::withSpinner(plotOutput("bmd_fitting"), type = 6))),
                                       column(4,fluidRow(plotOutput("bmd_fitting_legend")))
@@ -484,36 +400,32 @@ fluidPage(
                                             
                                    ))     
                                    
-                          )
+                          ),
+                        tabPanel("Compare Experiments",
+                          fluidRow(
+                            column(3,sliderInput("range", "Range:", min = 0, max = 100, value = c(0,10))),
+                            column(3,sliderInput("maxInt", "Maximum intersection:", min = 1, max = 100, value = 10)),
+                            column(3,selectInput("groupby", "GroupBy:", c("degree"="degree", "sets" = "sets"))),
+                            column(3,selectInput("orderby", "OrderBy:", c("frequency"="freq", "degree" = "degree")))
+                           ),
+                          fluidRow(column(12,plotOutput("upsetplot")) )       
+                        )
                         )
                )
                )), #end tabpanel
                tabPanel(value = "enrTab",title = "Enrichment",
-                #         fluidRow(
-                #           column(6, uiOutput("timePointSel3"))
-                #         ),    
-                # fluidRow(column(12, DT::dataTableOutput("enrich_table")))         
-        
                 sidebarLayout(
                   sidebarPanel(
                     wellPanel(
                       tags$h5("1. Data Selection"),
-                      fluidRow(                      
-                        selectInput(inputId = "level", label = "Browse hierarchy: choose a level",choices = list(1,2,3))
+                      fluidRow(selectInput(inputId = "level", label = "Browse hierarchy: choose a level",choices = list(1,2,3))),
+                      fluidRow(
+                        column(4,uiOutput("chose_lev1")), shinyBS::bsTooltip(id = "chose_lev1",title = "Note: remove ALL from the list for specific selection.",placement = "top"),
+                        column(4,uiOutput("chose_lev2")), shinyBS::bsTooltip(id = "chose_lev2",title = "Note: remove ALL from the list for specific selection.",placement = "top"),
+                        column(3,uiOutput("chose_lev3")), shinyBS::bsTooltip(id = "chose_lev3",title = "Note: remove ALL from the list for specific selection.",placement = "top")
                       ),
                       fluidRow(
-                        column(4,uiOutput("chose_lev1")),
-                        shinyBS::bsTooltip(id = "chose_lev1",title = "Note: remove ALL from the list for specific selection.",placement = "top"),
-                        column(4,uiOutput("chose_lev2")),
-                        shinyBS::bsTooltip(id = "chose_lev2",title = "Note: remove ALL from the list for specific selection.",placement = "top"),
-                        column(3,uiOutput("chose_lev3")),
-                        shinyBS::bsTooltip(id = "chose_lev3",title = "Note: remove ALL from the list for specific selection.",placement = "top")
-                        
-                      ),
-                      fluidRow(
-                        uiOutput("selectColumn"),
-                        shinyBS::bsTooltip(id = "selectColumn",title = "Note: remove ALL from the list for specific selection.",placement = "top")
-                        
+                        uiOutput("selectColumn"), shinyBS::bsTooltip(id = "selectColumn",title = "Note: remove ALL from the list for specific selection.",placement = "top")
                       )
                     ),
                     wellPanel(
@@ -522,9 +434,7 @@ fluidPage(
                       fluidRow(
                         column(4,checkboxInput("doGrouping", "Show categories", value = TRUE)),
                         column(4,checkboxInput("aspectRatio", "Keep aspect ratio", value = TRUE)),
-                        column(4,actionButton("do", "Plot Map")),
-                        shinyBS::bsTooltip(id = "do",title ="NOTE: press the Plot Mat button every time you update the map!",placement = "bottom")
-                        
+                        column(4,actionButton("do", "Plot Map")), shinyBS::bsTooltip(id = "do",title ="NOTE: press the Plot Mat button every time you update the map!",placement = "bottom")
                       )
                     ),
                     wellPanel(
@@ -532,23 +442,9 @@ fluidPage(
                       fluidRow(
                         column(4,textInput(inputId ="img_width", value = 15,label = "Width")), #width
                         column(4,textInput(inputId ="img_height", value = 30,label = "Height")),
-                        column(4,downloadButton('downloadData')),
-                        shinyBS::bsTooltip(id = "downloadData",title ="NOTE: when downloading, specify image size in inches ",placement = "bottom")
+                        column(4,downloadButton('downloadData')), shinyBS::bsTooltip(id = "downloadData",title ="NOTE: when downloading, specify image size in inches ",placement = "bottom")
                       )
                     )
-                    # wellPanel(
-                    #   tags$h5("4. Clustering Selection"),
-                    #   fluidRow(
-                    #     column(4,uiOutput("nClust")),
-                    #     column(4,selectInput("ClusterMethod","Select aggregation method",list("ward","complete","single"),selected = "complete")),
-                    #     column(4,selectInput("Distance","Select distance",list("euclidean","jaccard","jaccard+euclidean"),selected = "jaccard"))
-                    #   ),
-                    #   fluidRow(
-                    #     column(6,actionButton("doCluster", "Cluster Samples")),
-                    #     column(6,actionButton("resetCluster","Reset Cluster"))
-                    #   )
-                    # )
-                    
                   ),
                   mainPanel(
                     tags$h5("Use scrollbars to navigate and see the whole map"),
