@@ -54,8 +54,18 @@ z-index: 1000000;
 }
 "
 
+jsCode <- "
+callback = 'function(table) {
+  table.on('click.dt', 'tr', function() {
+    table.$('tr.selected').removeClass('selected');
+    $(this).toggleClass('selected');            
+    Shiny.onInputChange('rows',
+                        table.rows('.selected').data()[0][0]);
+  });
+}'
+"
+
 fluidPage(
-  useShinyjs(),
   useShinyjs(),
   inlineCSS(appCSS),
   hidden(div(id="loading-content",
@@ -349,7 +359,12 @@ fluidPage(
                                     fluidRow(
                                       column(8,fluidRow(shinycssloaders::withSpinner(plotOutput("bmd_fitting"), type = 6))),
                                       column(4,fluidRow(plotOutput("bmd_fitting_legend")))
-                                   )     
+                                   )   
+                                   #torem
+                                   # fluidRow(
+                                   #   column(9, DT::dataTableOutput('x3')),
+                                   #   column(3, verbatimTextOutput('x4'))
+                                   # )
                           ),
                           tabPanel("Compare TP",
                                    tabPanel("Compare Time points",

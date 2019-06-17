@@ -489,7 +489,7 @@ shinyServer(function(input, output, session) {
         PValMat_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = PValMat
       }
       
-      incProgress(1/length(gVars$phTable), detail = paste("ANOVA Experiment: ",i," Experiment: ",i ,"/",length(gVars$phTable),sep=""))
+      incProgress(1/length(gVars$phTable), detail = paste("ANOVA Experiment: ",i+1," Experiment: ",i+1 ,"/",length(gVars$phTable),sep=""))
       
     }
     
@@ -541,7 +541,7 @@ shinyServer(function(input, output, session) {
         MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose), loofth = as.numeric(input$LOOF))
         MQ_BMDListFilteredValues[[names(gVars$phTable)[j]]][[as.character(i)]]  =  MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]$BMDValues_filtered
       }
-      incProgress(1/length(gVars$phTable), detail = paste("BMD Experiment: ",j," Experiment: ",j ,"/",length(gVars$phTable),sep=""))
+      incProgress(1/length(gVars$phTable), detail = paste("BMD Experiment: ",j+1," Experiment: ",j+1 ,"/",length(gVars$phTable),sep=""))
       
     }
     })
@@ -1818,27 +1818,41 @@ shinyServer(function(input, output, session) {
     BMD_tab[,"BMDL"] =  as.numeric(as.vector(BMD_tab[,"BMDL"]))
     BMD_tab[,"BMDU"] =  as.numeric(as.vector(BMD_tab[,"BMDU"]))
         
-    DT::datatable(BMD_tab, filter="top",
-                  options = list(
-                    search = list(regex=TRUE, caseInsensitive=FALSE),
-                    scrollX=TRUE,
-                    ordering=T, pageLength = 5
-                  )
-    )
-  },selection = 'single', server = FALSE)
+    save(BMD_tab, file="../BMD_tab.RData")
+    
+    #DT::datatable(BMD_tab,options = list(pageLength = 5))
+    
+    BMD_tab
+    
+  },selection = "single", server = TRUE)
+  
+  # remember to remove
+  #load(file="../BMD_tab.RData")
+  # mtcars2 = mtcars[, 1:8]
+  # output$x3 = DT::renderDataTable( DT::datatable(BMD_tab), server = TRUE, selection = "single")
+  # 
+  # # print the selected indices
+  # output$x4 = renderPrint({
+  #   s = input$x3_rows_selected
+  #   if (length(s)) {
+  #     cat('These rows were selected:\n\n')
+  #     cat(s, sep = ', ')
+  #   }
+  # })
+  
   
   output$bmd_fitting = renderPlot({
     if(length(input$BMD_table_rows_selected) == 0){
       return(NULL)
     }
     
-    #ExptimeSelBMD
-    #timePointSel2
-    
-    #MQ_BMD_filtered2 
+    print("test")
+    print(input$BMD_table_rows_selected)
     
     selectedrowindex = input$BMD_table_rows_selected[length(input$BMD_table_rows_selected)]
+    print(length(input$BMD_table_rows_selected))
     selectedrowindex = as.numeric(selectedrowindex)
+    print(selectedrowindex)
     
     BMDVF = gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
     
@@ -1865,7 +1879,6 @@ shinyServer(function(input, output, session) {
     
     print("Saving plot file")
     print("END Saving plot file")
-    
 
     print(geneBMD)
     print(geneBMDL)
@@ -1876,7 +1889,7 @@ shinyServer(function(input, output, session) {
                       "Power2","Power3","Power4","Exponential",
                       "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
       
-        #save(modToPlot,geneBMD, geneBMDL, geneBMDU, file = "../linear_mod_to_plot.RData")
+        save(modToPlot,geneBMD, geneBMDL, geneBMDU, file = "../linear_mod_to_plot.RData")
         ggp = effect_plot(model = modToPlot, pred = dose, interval = TRUE, plot.points = TRUE) +
         scale_y_continuous(limits = c( min(modToPlot$model[,1]),  max(modToPlot$model[,1]))) +
         geom_segment(aes(x = geneBMD, y = min(modToPlot$model[,1]), 
@@ -1952,7 +1965,7 @@ shinyServer(function(input, output, session) {
 
     par(mar = c(0,0,0,0))
     plot(1, type="n", xlab="", ylab="", xlim=c(0, 2), ylim=c(0, 2), xaxt = "n", yaxt = "n", frame.plot = FALSE)
-    legend("center",  legend=c("BMD","BMDL","BMDU","BMR"), fill = c("red","green","blue","orange"), ncol=4, bty = "n")
+    legend("center",  legend=c("BMD","BMDL","BMDU","IC50/EC50"), fill = c("blue","red","green","black"), ncol=4, bty = "n")
   })
 
   
