@@ -1832,6 +1832,11 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
+    #ExptimeSelBMD
+    #timePointSel2
+    
+    #MQ_BMD_filtered2 
+    
     selectedrowindex = input$BMD_table_rows_selected[length(input$BMD_table_rows_selected)]
     selectedrowindex = as.numeric(selectedrowindex)
     
