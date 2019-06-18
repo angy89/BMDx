@@ -1818,7 +1818,7 @@ shinyServer(function(input, output, session) {
     BMD_tab[,"BMDL"] =  as.numeric(as.vector(BMD_tab[,"BMDL"]))
     BMD_tab[,"BMDU"] =  as.numeric(as.vector(BMD_tab[,"BMDU"]))
         
-    save(BMD_tab, file="../BMD_tab.RData")
+    #save(BMD_tab, file="../BMD_tab.RData")
     
     #DT::datatable(BMD_tab,options = list(pageLength = 5))
     
@@ -1889,7 +1889,7 @@ shinyServer(function(input, output, session) {
                       "Power2","Power3","Power4","Exponential",
                       "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
       
-        save(modToPlot,geneBMD, geneBMDL, geneBMDU, file = "../linear_mod_to_plot.RData")
+        #save(modToPlot,geneBMD, geneBMDL, geneBMDU, file = "../linear_mod_to_plot.RData")
         ggp = effect_plot(model = modToPlot, pred = dose, interval = TRUE, plot.points = TRUE) +
         scale_y_continuous(limits = c( min(modToPlot$model[,1]),  max(modToPlot$model[,1]))) +
         geom_segment(aes(x = geneBMD, y = min(modToPlot$model[,1]), 
