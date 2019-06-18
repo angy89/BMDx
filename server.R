@@ -708,7 +708,7 @@ shinyServer(function(input, output, session) {
         colnames(Mp) = c("Chemical","Grouping", "Experiment","Timepoint")
         pheno = cbind(Mp[,2],Mp[,1])
         
-        save(GList, pheno, file = "funmapponeInput.RData")
+        #save(GList, pheno, file = "funmapponeInput.RData")
         
         gVars$GList = GList
         gVars$pheno = pheno
@@ -1330,7 +1330,7 @@ shinyServer(function(input, output, session) {
     names(BMDL) = names(BMDU) = names(BMD)
     print("plotto un pathwayyyyyyyy - >>>>>>>>>> ")
     print(BMD)
-    save(selectedrowindex,ER,BMDFilMat, gi, idx, BMD, BMDL, BMDU, file = "../path_plot.RData")
+    #save(selectedrowindex,ER,BMDFilMat, gi, idx, BMD, BMDL, BMDU, file = "../path_plot.RData")
     
     #BMD = sort(BMD, decreasing = F)
     
@@ -1449,7 +1449,7 @@ shinyServer(function(input, output, session) {
       DF$Freq[iid] = DF$Freq[iid]/sum(DF$Freq[iid]) * 100
     }
     
-    save(DF, file = "../mod_hist.RData")
+    #save(DF, file = "../mod_hist.RData")
     
     print(head(DF))
     ggplot(data=DF, aes(x = "", y = Freq, fill = Model)) + geom_bar(width = 1, stat = "identity") + 
