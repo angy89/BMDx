@@ -1319,7 +1319,12 @@ shinyServer(function(input, output, session) {
     PatName = ER[selectedrowindex,"annID"]
     PatGenes = ER[selectedrowindex,"gID"]
     
-    BMDFilMat = gVars$MQ_BMD_filtered[[input$time_point_id_visualPat]]$BMDValues_filtered
+    exp_tp = unlist(strsplit(input$time_point_id_visualPat,"_"))
+    
+    BMDFilMat = gVars$MQ_BMD_filtered[[exp_tp[1]]][[exp_tp[2]]]$BMDValues_filtered
+    
+    
+    #BMDFilMat = gVars$MQ_BMD_filtered[[input$time_point_id_visualPat]]$BMDValues_filtered
     gi = unlist(strsplit(x = ER[input$PAT_table_rows_selected,2],split = ","))
     idx = which(tolower(BMDFilMat[,1])%in% tolower(gi))
     BMD = as.numeric(BMDFilMat[idx,"BMD"])
