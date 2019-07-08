@@ -1359,8 +1359,8 @@ shinyServer(function(input, output, session) {
     #   print("Null BMD")
     #   return(NULL)
     # }
-    
-    if(!input$time_point_id_visualPat %in% names(gVars$EnrichDatList)){
+    print("ciao")
+    if((input$time_point_id_visualPat %in% names(gVars$EnrichDatList))==FALSE){
       print("No enrichment for this TP")
       return(NULL)
     }
@@ -1724,7 +1724,7 @@ shinyServer(function(input, output, session) {
     print(names(gVars$EnrichDatList))
     print(min(as.numeric(names(gVars$EnrichDatList))))
     
-    selectInput("time_point_id_table", "Time Points", choices=names(gVars$EnrichDatList), selected = min(as.numeric(names(gVars$EnrichDatList))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
+    selectInput("time_point_id_table", "Time Points", choices=names(gVars$EnrichDatList), selected = names(gVars$EnrichDatList)[1])#c("All",unique(gVars$phTable[,gVars$TPColID])))
   })
   
   output$PatTable = DT::renderDataTable({
@@ -1733,7 +1733,7 @@ shinyServer(function(input, output, session) {
     )
     
     ER <- gVars$EnrichDatList[[input$time_point_id_table]]
-    
+    ER = ER[,c(5,1:4)]
     DT::datatable(ER, filter="top",
                   options = list(
                     search = list(regex=TRUE, caseInsensitive=FALSE),
@@ -2541,7 +2541,9 @@ shinyServer(function(input, output, session) {
     print(names(gVars$EXP_FIL))
     print(min(as.numeric(names(gVars$EXP_FIL))))
     
-    selectInput("time_point_id_visualPat", "Time Points", choices=names(gVars$EnrichDatList), selected = min(as.numeric(names(gVars$EnrichDatList))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
+    #selectInput("time_point_id_visualPat", "Time Points", choices=names(gVars$EnrichDatList), selected = min(as.numeric(names(gVars$EnrichDatList))))#c("All",unique(gVars$phTable[,gVars$TPColID])))
+    selectInput("time_point_id_visualPat", "Time Points", choices=names(gVars$EnrichDatList), selected = names(gVars$EnrichDatList)[1])#c("All",unique(gVars$phTable[,gVars$TPColID])))
+    
   })
   
 
