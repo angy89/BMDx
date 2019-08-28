@@ -523,15 +523,17 @@ shinyServer(function(input, output, session) {
     MQ_BMDListFilteredValues = list()
     
     for(j in 1:length(gVars$phTable)){
+      print("this is the j ----> ")
+      print(j)
       
       pTable = gVars$phTable[[j]]
-      timep = unique(pTable[,gVars$TPColID])
+      timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
       print(timep)
       
       maxDose = max(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
       
       for(i in timep){
-        
+
         MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
                               time_t=as.character(i), #interval_type = input$Interval,
                               tpc = gVars$TPColID, 
@@ -678,7 +680,9 @@ shinyServer(function(input, output, session) {
       for(j in names(gVars$EXP_FIL)){ # for each experiment
         
         pTable = gVars$phTable[[j]]
-        timep = unique(pTable[,gVars$TPColID])
+        timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
+        
+        #timep = unique(pTable[,gVars$TPColID])
         print(timep)
         
         for(i in timep){
@@ -2815,7 +2819,7 @@ shinyServer(function(input, output, session) {
         rownames(mat_to_Plot) = gVars$exp_ann[1,2]
       }
       
-      #print(mat_to_Plot[1:5,1:5])      
+      print("xxx")      
       gVars$toPlot = plot_grid(path_mat = mat_to_Plot,path_hier = hier,experiment_ann =  gVars$exp_ann,discrete =  isDiscrete,level_col = max(1,as.numeric(input$level)-1),square_colors=c(),color_leg=c(),path_text_size = 12,treat_text_size = 12, asRatio=(input$aspectRatio))
     }else{
       print("grouping NOT selected")

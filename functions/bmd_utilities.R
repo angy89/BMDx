@@ -134,7 +134,18 @@ filter_anova = function(exp_data, pvalues_genes, adj.pval = TRUE, p.th=0.01){
   
   var_genes = pvalues_genes[idx]
   not_var_genes = pvalues_genes[-idx]
-  filt_exp = exp_data[names(var_genes),]
+  
+  if(length(idx)==1){ # if its only one gene filt_exp still have to be a matrix
+    filt_exp = matrix(0, nrow = 1, ncol = ncol(exp_data))
+    filt_exp[1,] = exp_data[names(var_genes),]
+    rownames(filt_exp) = names(var_genes)
+    colnames(filt_exp) = colnames(exp_data)
+    #filt_exp = exp_data[names(var_genes),]
+    
+  }else{
+    filt_exp = exp_data[names(var_genes),]
+  }
+  
   
   PValMat = cbind(names(pvalues_genes), pvalues_genes)
   rownames(PValMat) = NULL
