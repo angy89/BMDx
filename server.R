@@ -401,17 +401,26 @@ shinyServer(function(input, output, session) {
         need(!is.null(gVars$inputGx), "No Expression File Provided!")
       )
       
-      timep = unique(gVars$phTable[,gVars$TPColID])
+      print("skip anova")
+      
+      #timep = unique(gVars$phTable[,gVars$TPColID])
       EXP_FIL_List = list()
       VG_List = list()
       NVG_List = list()
       PValMat_List = list()
       
-      for(tp in timep){
-        EXP_FIL_List[[as.character(tp)]] = gVars$inputGx
-        VG_List[[as.character(tp)]] = rownames(gVars$inputGx)
-        NVG_List[[as.character(tp)]] = c()
-        PValMat_List[[as.character(tp)]] = NULL
+      for(i in 1:length(gVars$phTable)){
+        
+        pTable = gVars$phTable[[i]]
+        timep = unique(pTable[,gVars$TPColID])
+        
+        for(tp in timep){
+          EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = gVars$inputGx[[i]]
+          VG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = rownames(gVars$inputGx[[i]])
+          NVG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = c()
+          PValMat_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = NULL
+        }
+        
       }
       
       gVars$EXP_FIL = EXP_FIL_List # EXP_FIL
