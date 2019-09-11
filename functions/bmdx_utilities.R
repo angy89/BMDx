@@ -46,16 +46,32 @@ create_gene_bmd_dataframe_and_cluster_genes_by_bmd = function(bmd_list,ItemsList
   
   colnames(XX) = c("Gene","BMD","TimePoint")
   XX = as.data.frame(XX)  
+  
   colnames(BMD_gene) = innerset
   rownames(BMD_gene) = as.character(x[ItemsList[[intersectionName]],"Gene"])
   
-  # hierarchical clustering of the genes
-  hls = hclust(as.dist(1-cor(t(BMD_gene))), method = hmethod)
-  #plot(hls)
+  if(nrow(BMD_gene)>1 && ncol(BMD_gene)>1){ #if there are at least two genes and two timepoints I can cluster genes based on their BMD across time
+    # hierarchical clustering of the genes
+    hls = hclust(as.dist(1-cor(t(BMD_gene))), method = hmethod)
+    #plot(hls)
+    
+    cls = cutree(hls, nclust)
+    XX = cbind(XX, cls[as.character(as.vector(XX[,1]))])
+    colnames(XX)[4] = "Cluster"
+  }else{ #if there is one gene and multiple time point, there is only 1 cluster with the single gene
+    if(ncol(BMD_gene)>1){
+      XX = cbind(XX, 1)
+      colnames(XX)[4] = "Cluster"
+      hls = NULL
+    }else{ #if there is only one time point, cannot cluster genes, I will make a scatterplot instead
+      XX = cbind(XX, 0)
+      colnames(XX)[4] = "Cluster"
+      hls = NULL
+    }
+
+  }
   
-  cls = cutree(hls, nclust)
-  XX = cbind(XX, cls[as.character(as.vector(XX[,1]))])
-  colnames(XX)[4] = "Cluster"
+  
   
   return(list(XX=XX, hls = hls, BMD_gene = BMD_gene))
 }

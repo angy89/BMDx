@@ -86,6 +86,13 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1
       exp = exp_data[i,as.character(df_timei[,sc])]
       #the datafame contains the expression values for genes i for samples at time 1d and their doses
       anova_df = data.frame(exp = exp,dose=df_timei[,dc])
+      
+      unique_ds = length(unique(anova_df$dose))
+
+      if(unique_ds==1){
+        return(NULL)
+      }
+      
       anova_res = aov(exp~dose, anova_df)
       pvalue = unlist(summary(anova_res))["Pr(>F)1"]
       pvalues_genes = c(pvalues_genes,pvalue)
@@ -96,25 +103,14 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1
       
     }
   })
+
+  if(is.null(pvalues_genes)){
+    return(NULL)
+  }else{
+    names(pvalues_genes) = rownames(exp_data)
+    return(pvalues_genes) 
+  }
   
-  # #for each gene in the dataset compute the ANOVA across the different doses
-  # pvalues_genes = c()
-  # pb = txtProgressBar(min = 1,max=nrow(exp_data),style=3)
-  # for(i in 1:nrow(exp_data)){
-  #   #take the value of the genes across the samples at time 1d
-  #   exp = exp_data[i,as.character(df_timei[,sc])]
-  #   #the datafame contains the expression values for genes i for samples at time 1d and their doses
-  #   anova_df = data.frame(exp = exp,dose=df_timei[,dc])
-  #   anova_res = aov(exp~dose, anova_df)
-  #   pvalue = unlist(summary(anova_res))["Pr(>F)1"]
-  #   pvalues_genes = c(pvalues_genes,pvalue)
-  #   setTxtProgressBar(pb,i)
-  # }
-  # close(pb)
-  
-  names(pvalues_genes) = rownames(exp_data)
- 
-  return(pvalues_genes)
 
 }
 
@@ -235,7 +231,8 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
     # 
     mod = fit_models_mselect(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
 
-  #effect_plot(model = mod$opt_mod, pred = dose, interval = TRUE, plot.points = TRUE)
+  
+    #effect_plot(model = mod$opt_mod, pred = dose, interval = TRUE, plot.points = TRUE)
     
     if(is.null(mod)){
       print("no mod fit this gene")

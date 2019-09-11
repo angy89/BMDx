@@ -285,7 +285,11 @@ fluidPage(
                         column(3, uiOutput("timePoint")),
                         column(3, radioButtons("adjBool", "Pvalue:", c("FDR" = TRUE,"Nominal" = FALSE),selected = FALSE)),
                         column(3, selectInput("anovaPvalTh", "Anova PValue Th:", choices=c(0.05,0.04,0.03,0.02,0.01)))
-                       ),fluidRow(
+                       ),
+                       fluidRow(
+                         textOutput("anova_update")
+                       ),
+                       fluidRow(
                          column(12, align="right",shinyBS::bsButton("anova_analysis", label="Run Anova", style="info", icon=icon("hand-o-right")))
                        )                       
       ),

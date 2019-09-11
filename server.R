@@ -51,7 +51,7 @@ source("functions/ED.lin.R")
 source("functions/bmdx_utilities.R")
 
 # this instruction increase the maximum size of the file that can be uploaded in a shiny application
-options(shiny.maxRequestSize=30*1024^2) 
+options(shiny.maxRequestSize=300*1024^2) 
 
 celTable <- NULL
 phTable <- NULL
@@ -154,7 +154,7 @@ shinyServer(function(input, output, session) {
       for(j in 1:nrow(gi)){
         gii[j,] = as.numeric(gi[j,])
       }
-      
+      gii = gii[, gVars$phTable[[i]][,gVars$sampleColID]]
       gx[[i]] = gii
     }
     
@@ -273,6 +273,8 @@ shinyServer(function(input, output, session) {
     phFile <- input$fPheno
     print("separator -->")
     phTable = read_excel_allsheets(filename = phFile$datapath,tibble = FALSE)
+    
+    phTable = phTable
     
     gVars$phLoaded <- 1
     print("str(phTable) -- after:")
@@ -451,6 +453,7 @@ shinyServer(function(input, output, session) {
     VG_List = list()
     NVG_List = list()
     PValMat_List = list()
+    anova_completed = TRUE
     
     withProgress(message = 'Running ANOVA', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
       
@@ -463,12 +466,29 @@ shinyServer(function(input, output, session) {
       if(input$time_point_id == "All"){
         for(tp in  timep){
           print(tp)
+          
+          print("ciao")
           pvalues_genes = compute_anova(exp_data = gVars$inputGx[[i]], #[runif(n = 500,min = 1,max = nrow(gVars$inputGx)),], # TOGLIERE LA SELEZIONE RANDOM DEI GENI
                                         pheno_data=gVars$phFactor[[i]], 
                                         time_t=tp,
                                         tpc = gVars$TPColID, 
                                         dc = gVars$doseColID, 
                                         sc = gVars$sampleColID)
+          
+          if(is.null(pvalues_genes)){
+            
+            output$anova_update <- renderText({ 
+              "Cannot perform anova with only one dose-level. check dose and time point columns"
+            })
+            
+            #shinyalert("Oops!", "Cannot perform anova with only one dose-level. check dose and time point columns", type = "error")
+            anova_completed=FALSE
+            return(NULL)
+          }else{
+            output$anova_update <- renderText({ 
+              "Anova running..."
+            })
+          }
           
           c(EXP_FIL, var_genes, not_var_genes,PValMat) %<-% filter_anova(exp_data=gVars$inputGx[[i]], 
                                                                          pvalues_genes=pvalues_genes, 
@@ -504,16 +524,19 @@ shinyServer(function(input, output, session) {
     
 })
     
-    gVars$EXP_FIL = EXP_FIL_List # EXP_FIL
-    gVars$var_genes = VG_List #var_genes
-    gVars$not_var_genes = NVG_List #not_var_genes
-    gVars$PValMat= PValMat_List #PValMat
-
-    shinyBS::toggleModal(session, "computeAnova", toggle="close")
-    shinyBS::updateButton(session, "anova_filtering_button", style="success", icon=icon("check-circle"))
-    shinyBS::updateButton(session, "skip_anova_filtering_button", style="success", icon=icon("check-circle"))
-    shinyBS::updateCollapse(session, "bsSidebar1", open="COMPUTE BMD", style=list("ANOVA FILTERING"="success","COMPUTE BMD"="warning"))
-    shiny::updateTabsetPanel(session, "display",selected = "AnovaTab")
+    if(anova_completed){
+      gVars$EXP_FIL = EXP_FIL_List # EXP_FIL
+      gVars$var_genes = VG_List #var_genes
+      gVars$not_var_genes = NVG_List #not_var_genes
+      gVars$PValMat= PValMat_List #PValMat
+      
+      shinyBS::toggleModal(session, "computeAnova", toggle="close")
+      shinyBS::updateButton(session, "anova_filtering_button", style="success", icon=icon("check-circle"))
+      shinyBS::updateButton(session, "skip_anova_filtering_button", style="success", icon=icon("check-circle"))
+      shinyBS::updateCollapse(session, "bsSidebar1", open="COMPUTE BMD", style=list("ANOVA FILTERING"="success","COMPUTE BMD"="warning"))
+      shiny::updateTabsetPanel(session, "display",selected = "AnovaTab")
+    }
+    
   })
   
 
@@ -525,6 +548,8 @@ shinyServer(function(input, output, session) {
     shiny::validate(
       need(!is.null(gVars$EXP_FIL), "No Phenotype File Provided!")
     )
+    
+    print("BMD")
     
     withProgress(message = 'Running BMD', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
     MQ_BMDList = list()
@@ -1325,6 +1350,8 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
+    print("xyz")
+    
     selectedrowindex = input$PAT_table_rows_selected[length(input$PAT_table_rows_selected)]
     selectedrowindex = as.numeric(selectedrowindex)
     
@@ -1621,25 +1648,31 @@ shinyServer(function(input, output, session) {
   
   output$gene_bmd_plot = renderPlotly({
     if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
-
+    if(is.null(input$geneClust)) {return(NULL)}
+    if(is.null(input$intersectionName)) {return(NULL)}
+    
     print("gene_bmd_plot")
     BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
 
-    
     if(length(BMD_tab)>1){
       
       c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
-      
+      print("xxx")
       c(XX, hls, BMD_gene) %<-% create_gene_bmd_dataframe_and_cluster_genes_by_bmd(bmd_list=BMD_tab,
                                                                                    ItemsList=ItemsList,
                                                                                    hmethod=input$geneClustMeth, 
                                                                                    nclust=as.numeric(input$geneClust),
                                                                                    intersectionName=input$intersectionName)
   
+      if(unique(XX$Cluster==0)){
+        p = ggplot(data=XX, aes(x=BMD, y=Gene, color = BMD)) +
+          geom_point() 
+      }else{
+        p = ggplot(data=XX, aes(x=TimePoint, y=BMD, group=Gene, color = Gene)) +
+          geom_line(linetype = "dashed")+
+          geom_point() + facet_grid(~Cluster)
+      }
       
-      p = ggplot(data=XX, aes(x=TimePoint, y=BMD, group=Gene, color = Gene)) +
-        geom_line(linetype = "dashed")+
-        geom_point() + facet_grid(~Cluster)
       ggplotly(p)
     }
   })
@@ -1992,6 +2025,8 @@ shinyServer(function(input, output, session) {
       need(!is.null(gVars$inputPh()), "No Phenotype File Provided!")
     )
     
+    print("upload")
+    
     phTable <- gVars$inputPh()
     doseColID <- NULL
     TPColID <- NULL
@@ -2004,6 +2039,11 @@ shinyServer(function(input, output, session) {
     TPColID <- as.integer(input$TPCol)
     gVars$TPColID = TPColID # setting time point ID column in the variable list
     
+    for(i in 1:length(phTable)){
+      phTable[[i]] = phTable[[i]][order(phTable[[i]][,doseColID]),]
+    }
+    
+
     #fileNameColID <- as.integer(input$fileNameCol)
     doseColName <- NULL
     TPColName <- NULL
