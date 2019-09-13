@@ -1,3 +1,5 @@
+options(java.parameters = c("-XX:+UseConcMarkSweepGC", "-Xmx8192m"))
+
 library(drc)
 library(bmd)
 library(org.Hs.eg.db)
@@ -33,6 +35,7 @@ library(grid)
 library(gtable)
 library(shinycssloaders)
 library(UpSetR)
+library(XLConnect)
 
 set.seed(12)
 load(file ="data/updated_kegg_hierarhcy.RData")
@@ -1069,13 +1072,38 @@ shinyServer(function(input, output, session) {
       
       print("I'm saving anova tables")
       
-      write.xlsx(gVars$PValMat[[1]], file, sheetName = names(gVars$PValMat)[1]) 
+      firstCall = TRUE
       
-      if(length(gVars$PValMat)>1){
-        for(i in 2:length(gVars$PValMat)){
-          write.xlsx(gVars$PValMat[[i]], file, sheetName = names(gVars$PValMat)[i], append = TRUE) 
+      for(exp in names(gVars$PValMat)){
+        print(exp)
+        times = names(gVars$PValMat[[exp]])
+        for(tp in times){
+          print(tp)
+          if(firstCall){
+            if(nrow(gVars$PValMat[[exp]][[tp]])>0){
+              write.xlsx(gVars$PValMat[[exp]][[tp]], file, sheetName = paste(exp,tp,sep = "_"), append = FALSE)
+              xlcFreeMemory()
+              firstCall = FALSE
+              print("first")
+            }
+          }else{
+            if(nrow(gVars$PValMat[[exp]][[tp]])>0){
+              write.xlsx(gVars$PValMat[[exp]][[tp]], file, sheetName = paste(exp,tp,sep = "_"), append = TRUE)
+              xlcFreeMemory()
+              print("appending")
+            }
+          }
+          
         }
       }
+      
+      # write.xlsx(gVars$PValMat[[1]], file, sheetName = names(gVars$PValMat)[1]) 
+      # 
+      # if(length(gVars$PValMat)>1){
+      #   for(i in 2:length(gVars$PValMat)){
+      #     write.xlsx(gVars$PValMat[[i]], file, sheetName = names(gVars$PValMat)[i], append = TRUE) 
+      #   }
+      # }
       
       print("Anova table stored!")
     }
@@ -1098,14 +1126,43 @@ shinyServer(function(input, output, session) {
       })
       
       print("I'm saving bmd tables")
-      write.xlsx(gVars$MQ_BMD_filtered[[1]]$BMDValues_filtered, file, sheetName = names(gVars$MQ_BMD_filtered)[1]) 
-      if(length(gVars$MQ_BMD_filtered)>1){
-        for(i in 2:length(gVars$MQ_BMD_filtered)){
-          if(nrow(gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered)>0){
-            write.xlsx(gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered, file, sheetName =  names(gVars$MQ_BMD_filtered)[i], append = TRUE) 
+      
+      # write.xlsx(gVars$MQ_BMD_filtered[[1]]$BMDValues_filtered, file, sheetName = names(gVars$MQ_BMD_filtered)[1]) 
+      # if(length(gVars$MQ_BMD_filtered)>1){
+      #   for(i in 2:length(gVars$MQ_BMD_filtered)){
+      #     if(nrow(gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered)>0){
+      #       write.xlsx(gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered, file, sheetName =  names(gVars$MQ_BMD_filtered)[i], append = TRUE) 
+      #     }
+      #   }
+      # }
+      
+      
+      firstCall = TRUE
+
+      for(exp in names(gVars$MQ_BMD_filtered)){
+        print(exp)
+        times = names(gVars$MQ_BMD_filtered[[exp]])
+        for(tp in times){
+          print(tp)
+          if(firstCall){
+            if(nrow(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered)>0){
+              write.xlsx(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered, file, sheetName = paste(exp,tp,sep = "_"), append = FALSE)
+              xlcFreeMemory()
+              firstCall = FALSE
+              print("first")
+            }
+          }else{
+            if(nrow(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered)>0){
+              write.xlsx(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered, file, sheetName = paste(exp,tp,sep = "_"), append = TRUE)
+              xlcFreeMemory()
+              print("appending")
+            }
           }
+
         }
       }
+      
+      
       print("BMD table stored!")
     }
   )
@@ -1810,11 +1867,19 @@ shinyServer(function(input, output, session) {
       })
       
       print("I'm saving enrichment tables")
-      write.xlsx(gVars$EnrichDatList[[1]], file, sheetName = names(gVars$EnrichDatList)[1]) 
+      for(i in 1:length(gVars$EnrichDatList)){
+        if(nrow(gVars$EnrichDatList[[i]])>0){
+          write.xlsx(gVars$EnrichDatList[[1]], file, sheetName = names(gVars$EnrichDatList)[1]) 
+          startI = i
+          break
+        }
+      }
       
       if(length(gVars$PValMat)>1){
-        for(i in 2:length(gVars$EnrichDatList)){
-          write.xlsx(gVars$EnrichDatList[[i]], file, sheetName =  names(gVars$EnrichDatList)[i], append = TRUE) 
+        for(i in (startI+1):length(gVars$EnrichDatList)){
+          if(nrow(gVars$EnrichDatList[[i]])>0){
+            write.xlsx(gVars$EnrichDatList[[i]], file, sheetName =  names(gVars$EnrichDatList)[i], append = TRUE) 
+          }
         }
       }
       print("Enrichment table stored!")

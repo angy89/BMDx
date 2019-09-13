@@ -214,7 +214,7 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
     exp = exp_data[i,as.character(df_timei[,sc])]
     exp = as.numeric(exp)
     dose = df_timei[,dc]
-    dose = as.vector(dose)
+    dose = as.numeric(as.vector(dose))
     
     sd_level = sd(exp[which(dose==0)]) * rl
     # print("Response level, mean of the controls * 1.349 ---------------->>>>>>>>>>")
