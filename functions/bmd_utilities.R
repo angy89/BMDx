@@ -286,6 +286,7 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
     timep = as.numeric(names(filtered_expression_data_list[[j]]))
     
     maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
+    minDose = min(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     
     for(i in timep){
       
@@ -296,7 +297,7 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
                                                                                                                               dc = dose_index,
                                                                                                                               sc = sample_index, sel_mod_list = sel_mod_list,rl = rl,nCores=nCores)
       
-      list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose), loofth = lack_of_fit_pvalue)
+      list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose), min_dose = as.numeric(minDose),loofth = lack_of_fit_pvalue)
       list_of_bmd_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]  =  list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]$BMDValues_filtered
     }
   }
@@ -362,7 +363,7 @@ listComb = function(x, ...) {
 #' @export
 
 compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc = 4, dc = 2, sc = 1,
-                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349, nCores=2){
+                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349, constantVar = FALSE, nCores=2){
   #,Kd = 10, hillN=2, pow = 2){
   if(tpc > ncol(pheno_data))
     stop("'time point column bigger than the size of the pheno data table!")
@@ -397,7 +398,12 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
                    dose = df_timei[,dc]
                    dose = as.numeric(as.vector(dose))
                    
-                   sd_level = sd(exp[which(dose==0)]) * rl
+                   if(constantVar){
+                     sd_level = sd(exp) * rl
+                   }else{
+                     sd_level = sd(exp[which(dose==0)]) * rl
+                   }
+                   
                    # print("Response level, mean of the controls * 1.349 ---------------->>>>>>>>>>")
                    # print(sd_level)
                    
@@ -443,7 +449,11 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
                      #if(!is.null(bmd_val))BMDValues = rbind(BMDValues,c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test))
                      if(!is.null(bmd_val)) {
                        bmd_values = c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test)
-                       return(list(bmd_values = bmd_values, mod = mod))
+                       #return(list(bmd_values = bmd_values, mod = mod))
+                       toRet = list()
+                       toRet[[paste(rownames(exp_data)[i],"BMDValues",sep="_")]] = bmd_values
+                       toRet[[paste(rownames(exp_data)[i],"Mod",sep="_")]] = mod
+                       return(toRet)
                      }
                    }
                    
@@ -457,15 +467,31 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
     return(list(BMDValues = NULL,opt_models_list=NULL))
   }
   
+  toRem = which(names(res)=="")
+  if(length(toRem)>0){
+    res = res[-toRem]
+  }
+  
   BMDValues = c()
   opt_models_list = list()
   idx = seq(from = 1,to = length(res),by = 2)
-  indici = 1
+  # indici = 1
+  # 
+  # for(ii in idx){
+  #   BMDValues = rbind(BMDValues, res[[ii]])
+  #   opt_models_list[[indici]] = res[[ii+1]]
+  #   indici = indici + 1
+  # }
+  
+  values_idx = grep(x = names(res),pattern = "BMDValues")
+  mod_idx = grep(x = names(res),pattern = "Mod")
+  
+  genigsub = gsub(pattern = "_BMDValues",replacement = "",x = names(res))
   
   for(ii in idx){
+    print(ii)
     BMDValues = rbind(BMDValues, res[[ii]])
-    opt_models_list[[indici]] = res[[ii+1]]
-    indici = indici + 1
+    opt_models_list[[res[[ii]][1]]] = res[[ii+1]]
   }
   
   # close(pb)
@@ -485,6 +511,8 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
   BMDValues$LOFPVal = round(as.numeric(as.vector(BMDValues$LOFPVal)),4)
   BMDValues$ANOVAPVal = round(as.numeric(as.vector(BMDValues$ANOVAPVal)),4)
   BMDValues = BMDValues[, 1:8]
+  
+  #names(opt_models_list) = BMDValues[,1]
   
   return(list(BMDValues = BMDValues,opt_models_list=opt_models_list))
 }
@@ -678,16 +706,11 @@ fit_models = function(formula=expr~dose, dataframe=df_gi,f_list,f_names){
 # This function filters the gene resulting from the compute_bmd function.
 # In particular the genes with BMD value greter than the maximum dose and the genes with a pvalue smaller that 0.1 are removed
 
-BMD_filters = function(BMDRes,max_dose = 20, loofth = 0.1){
+BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0, loofth = 0.1){
   BMDValues = BMDRes$BMDValues
   BMDModels = BMDRes$opt_models_list
-  # print("INSIDE BMD_filters")
-  # print("Check that for every gene i have a model")
-  # print(sum(BMDValues[,1] %in% names(BMDModels)))
-  # print("dim(BMDValues -->")
-  # print(dim(BMDValues))
-  # print("length(BMDModels)")
-  # print(length(BMDModels))
+  
+  bmd_to_rem_low_dose = which(as.numeric(BMDValues[,"BMD"])<= (min_dose - (min_dose*0.1)))
   
   bmd_to_rem = which(as.numeric(BMDValues[,"BMD"])>=max_dose)
   loof_to_rem = which(as.numeric(BMDValues[,"LOFPVal"])<=loofth)
@@ -708,6 +731,7 @@ BMD_filters = function(BMDRes,max_dose = 20, loofth = 0.1){
   # print(loof_to_rem)
   
   to_rem = union(union(bmd_to_rem,loof_to_rem), union(bmd_na, bmd_neg))
+  to_rem = union(to_rem, bmd_to_rem_low_dose)
   to_rem = union(to_rem, bounds)
   # print("object to rem: ---------------->>>>>>>>")
   # print(to_rem)
