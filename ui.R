@@ -138,16 +138,16 @@ fluidPage(
                      bsCollapse(id="bsSidebar0", open="MORE INFO",
                                 bsCollapsePanel("MORE INFO", style="sample",
                                                 fluidRow(
-                                                  HTML(" <a style=color:blue;  href=\"https://github.com/Greco-Lab/BMDx\">GitHub</a>")
+                                                  HTML(" <a style=color:blue;  target=\"_blank\"; href=\"https://github.com/Greco-Lab/BMDx\">GitHub</a>")
                                                 ),
                                                 fluidRow(
                                                   HTML("<a style=color:blue; target=\"_blank\";  href=\"Manual.pdf\">Manual</a>")
                                                 ),
                                                 fluidRow(
-                                                  HTML("<a style=color:blue;  href=\"https://github.com/Greco-Lab/BMDx/blob/master/pheno_list_2_exp_4_TP.xlsx\">Sample pheno data</a>")
+                                                  HTML("<a style=color:blue;  target=\"_blank\"; href=\"https://github.com/Greco-Lab/BMDx/blob/master/pheno_list_2_exp_4_TP.xlsx\">Sample pheno data</a>")
                                                 ),
                                                 fluidRow(
-                                                  HTML("<a style=color:blue;  href=\"https://github.com/Greco-Lab/BMDx/blob/master/exp_mat_file_2_exp_4_tp.xlsx\">Sample expression data</a>")
+                                                  HTML("<a style=color:blue;  target=\"_blank\"; href=\"https://github.com/Greco-Lab/BMDx/blob/master/exp_mat_file_2_exp_4_tp.xlsx\">Sample expression data</a>")
                                                 )
                                 )
                      )
@@ -239,7 +239,7 @@ fluidPage(
       shinyBS::bsModal("computeBMD", "Compute BMD Value", "bmd_button", size="large",
                        fluidRow(
                          column(6, textInput("RespLev", label = "Response Level", value =1.349)),
-                         column(6, checkboxInput("constantVar", "Constant Variance", value = TRUE))
+                         column(6, checkboxInput("constantVar", "Assumption of Constant Variance", value = TRUE))
                        ),
                        fluidRow(
                          column(4,selectInput("LOOF", "Lack-of-fit PValue Th:", choices=c(0.3,0.2,0.1,0.05),selected=0.1)),
