@@ -326,7 +326,7 @@ fluidPage(
                          column(12, align="right",shinyBS::bsButton("anova_analysis", label="Run Anova", style="info", icon=icon("hand-o-right")))
                        )                       
       ),
-      shinyBS::bsModal("computeTrend", "Filter Genes by Anova", "trend_filtering_button", size="large",
+      shinyBS::bsModal("computeTrend", "Filter Genes by Trend Test", "trend_filtering_button", size="large",
                        fluidRow(
                          column(3, uiOutput("trendTimePoint")),
                          column(3, radioButtons("TrendAdjBool", "Pvalue:", c("FDR" = TRUE,"Nominal" = FALSE),selected = FALSE)),
