@@ -1284,7 +1284,7 @@ shinyServer(function(input, output, session) {
     piepercent<- round(100*x/sum(x), 1)
     
     # Plot the chart.
-    pie(x, labels = piepercent, main = "Anova Result",col = rainbow(length(x)))
+    pie(x, labels = piepercent, main = "Filtering Result",col = rainbow(length(x)))
     legend("topright", c("Variable Genes","Non Variable Genes"), cex = 0.8,
            fill = rainbow(length(x)))
     
@@ -2637,12 +2637,17 @@ shinyServer(function(input, output, session) {
       selected = c(22,23,25,29,30,31)#c(19,21,22,23,25,27)
     }
     if(input$BMDSettings == "Degree of Freedom"){
+      print("degree of freedom")
       if(is.null(gVars$phTable)){
         nDose = 0
       }else{
-        nDose = length(unique(gVars$phTable[,gVars$doseColID]))
+        nDoses = c()
+        for(i in 1:length(gVars$phTable)){
+          nDoses = c(nDoses,length(unique(gVars$phTable[[i]][,gVars$doseColID])))
+        }
       }
-      if(nDose>0){
+      if(sum(nDose)>1){
+        nDose = min(nDose)-1
         DF =  nDose - 1
         modDF = c(2,3,Inf, 4,5,2,3,4,Inf,Inf,Inf,4,5,Inf,Inf,Inf,Inf,2,3,2,3,1,2,3,2,3,4,1,1,1,2,3,4,5)
         selected = which(modDF<=DF)
