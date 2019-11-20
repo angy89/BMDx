@@ -169,7 +169,7 @@ shinyServer(function(input, output, session) {
 
     shinyBS::toggleModal(session, "importGxModal", toggle="close")
     shinyBS::updateButton(session, "import_expr_submit", style="success", icon=icon("check-circle"))
-    shinyBS::updateCollapse(session, "bsSidebar1", open="GENE FILTERING", style=list("LOAD EXPRESSION MATRIX"="success","ANOVA FILTERING"="warning"))
+    shinyBS::updateCollapse(session, "bsSidebar1", open="GENE FILTERING", style=list("LOAD EXPRESSION MATRIX"="success","GENE FILTERING"="warning"))
     print("open anova")
     shiny::updateTabsetPanel(session, "display",selected = "gExpTab")
     
@@ -1285,7 +1285,7 @@ shinyServer(function(input, output, session) {
     
     # Plot the chart.
     pie(x, labels = piepercent, main = "Filtering Result",col = rainbow(length(x)))
-    legend("topright", c("Variable Genes","Non Variable Genes"), cex = 0.8,
+    legend("topright", c("Significant Genes","Non Significant Genes"), cex = 0.8,
            fill = rainbow(length(x)))
     
   })
@@ -2646,8 +2646,8 @@ shinyServer(function(input, output, session) {
           nDoses = c(nDoses,length(unique(gVars$phTable[[i]][,gVars$doseColID])))
         }
       }
-      if(sum(nDose)>1){
-        nDose = min(nDose)-1
+      if(length(nDoses)>0){
+        nDose = min(nDoses)-1
         DF =  nDose - 1
         modDF = c(2,3,Inf, 4,5,2,3,4,Inf,Inf,Inf,4,5,Inf,Inf,Inf,Inf,2,3,2,3,1,2,3,2,3,4,1,1,1,2,3,4,5)
         selected = which(modDF<=DF)

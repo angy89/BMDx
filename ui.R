@@ -17,10 +17,10 @@ appCSS <- "
 .content-wrapper { margin-left: 15%; }
 //.panel { background-color: #222d32; }
 .panel-title a { font-weight: bold; color: white !important; }
-.panel-sample .panel-heading { background-color: #2C6C99; }
-.panel-sample { border-color: #2C6C99; }
 .panel-warning .panel-heading { background-color: #00c0ef; }
 .panel-warning { border-color: #8de9ff; }
+.panel-sample .panel-heading { background-color: #2C6C99; }
+.panel-sample { border-color: #2C6C99; }
 .panel-danger .panel-heading { background-color: #dd4b39; }
 .panel-success .panel-heading { background-color: #00a65a; }
 .panel-info .panel-heading { background-color: #7e46ff; }
