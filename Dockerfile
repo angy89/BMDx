@@ -10,6 +10,11 @@ RUN ["R", "CMD", "javareconf"]
 
 USER docker
 COPY install_dependencies.R /home/docker/install_dependencies.R
+RUN ["Rscript", "-e",  "install.packages(\"trend\")"]
+RUN ["Rscript", "-e",  "install.packages(\"doParallel\")"]
 RUN ["Rscript", "/home/docker/install_dependencies.R"]
+RUN ["mkdir", "/home/docker/bmdx"]
+COPY ./ /home/docker/bmdx/
 
-ENTRYPOINT ["Rscript", "/home/docker/shiny_app/shiny_start.R"]
+WORKDIR /home/docker/bmdx
+ENTRYPOINT ["Rscript", "/home/docker/bmdx/shiny_start.R"]
