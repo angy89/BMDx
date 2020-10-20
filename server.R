@@ -54,7 +54,7 @@ source("functions/bmdx_utilities.R")
 source("functions/trend_test.R")
 source("functions/compute_bmd_internal.R")
 source("functions/fit_models_mselect2.R")
-soource("functions/fit_models_lm")
+source("functions/fit_models_lm.R")
 
 source("functions/path_grid_plot.R")
 source("functions/enrich_functions.R")
