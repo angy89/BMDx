@@ -154,13 +154,13 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1
   if(!time_t %in% pheno_data[,tpc])
     stop("'time point not available in the pheno data table!")
   
-  print("Sample ID column")
-  print(sc)
-  
-  print("samples id --->>>>")
-  print(as.character(pheno_data[,sc]))
-  
-  print(sum(as.character(pheno_data[,sc]) %in% colnames(exp_data)))
+  # print("Sample ID column")
+  # print(sc)
+  #
+  # print("samples id --->>>>")
+  # print(as.character(pheno_data[,sc]))
+  #
+  # print(sum(as.character(pheno_data[,sc]) %in% colnames(exp_data)))
   
   exp_data = exp_data[,as.character(pheno_data[,sc])]
   exp_data = as.matrix(exp_data)
@@ -170,11 +170,12 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1
   #for each gene in the dataset compute the ANOVA across the different doses
   #pvalues_genes = c()
   
-  cl <- makeCluster(nCores)
-  registerDoParallel(cl)
+  # cl <- parallel::makeCluster(nCores)
+  # doParallel::registerDoParallel(cl)
   
-  pvalues_genes = foreach(i = 1:nrow(exp_data), .combine=c) %dopar% {
-    #take the value of the genes across the samples at time 1d
+  i = NULL
+  # pvalues_genes = foreach::foreach(i = 1:nrow(exp_data), .combine=c) %dopar% {
+  pvalues_genes = parallel::mclapply(1:nrow(exp_data), function(i){
     exp = exp_data[i,as.character(df_timei[,sc])]
     
     #the datafame contains the expression values for genes i for samples at time 1d and their doses
@@ -186,19 +187,21 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1
       return(NULL)
     }
     
-    anova_res = aov(exp~dose, anova_df)
+    anova_res = stats::aov(exp~dose, anova_df)
     pvalue = unlist(summary(anova_res))["Pr(>F)1"]
     #pvalues_genes = c(pvalues_genes,pvalue)
     pvalue
     # Increment the progress bar, and update the detail text.
     #incProgress(1/nrow(exp_data), detail = paste("Anova Gene", i))
-    
-  }
-  
-  stopCluster(cl)
+  },mc.cores = nCores)
+  #take the value of the genes across the samples at time 1d
   
   
+  # }
   
+  # parallel::stopCluster(cl)
+  
+  pvalues_genes = unlist(pvalues_genes)
   if(is.null(pvalues_genes)){
     return(NULL)
   }else{

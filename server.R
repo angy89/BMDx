@@ -46,15 +46,17 @@ load("data/hm_reactome_hierarchy.RData")
 load("data/rat_reactome_hierarchy.RData")
 load("data/rat_kegg_hyerarchy.RData")
 reduced_kegg_hierarchy = kegg_hierarchy
+
 source("functions/bmd_utilities.R")
-source("functions/path_grid_plot.R")
-source("functions/enrich_functions.R")
-source("functions/goHier.R")
-source("functions/kegg_mats.R")
 source("functions/mselect.R")
 source("functions/ED.lin.R")
 source("functions/bmdx_utilities.R")
 source("functions/trend_test.R")
+
+source("functions/path_grid_plot.R")
+source("functions/enrich_functions.R")
+source("functions/goHier.R")
+source("functions/kegg_mats.R")
 
 # this instruction increase the maximum size of the file that can be uploaded in a shiny application
 options(shiny.maxRequestSize=300*1024^2) 
