@@ -371,6 +371,7 @@ listComb = function(x, ...) {
 #' @param bmdu_bmdl_th threshold for the bmdu/bmdl ratio. Default = 40 meaning that genes whose bmu/bmdl > 40 are removed
 #' @param first_only boolean value. If true only the best model (based on AIC criterion) is used to computet BMD/BMDL/BMDU/IC50 values. Otherwise, the models will be screended and the first one with lowest AIC and predicted alues satisfying all the filtering criteria will be selected
 #' @param filter_bounds_bmdl_bmdu boolean specifyinig if models with bmdl=0 or bmdu = max dose should be removed
+#' @param loofth lack of fit pvalue th
 #' @return an list containing three items
 #' \item{filt_exp}{filtered matrix of expression values containing only the genes that survive the anova test}
 #' \item{not_var_genes}{genes that do not survive the anova test}
@@ -385,16 +386,27 @@ listComb = function(x, ...) {
 #' @importFrom drc ED
 #' @export
 
-compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc = 4, dc = 2, sc = 1,
-                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349, constantVar = FALSE, nCores=2,
+compute_bmd = function(exp_data,pheno_data,
+                       time_t=4,
+                       interval_type = "delta",
+                       tpc = 4,
+                       dc = 2,
+                       sc = 1,
+                       sel_mod_list = c(19,21,22,23,25,27),
+                       rl = 1.349,
+                       loofth = 0.1,
+                       constantVar = FALSE,
+                       nCores=2,
                        conf_interval = 0.8,
                        min_dose = 0,
                        max_dose = 1000,
                        max_low_dos_perc_allowd = 0,
                        max_max_dos_perc_allowd=0,
                        first_only = FALSE,
-                       ratio_filter = FALSE, bmd_bmdl_th = 20,
-                       bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
+                       ratio_filter = FALSE,
+                       bmd_bmdl_th = 20,
+                       bmdu_bmd_th = 20,
+                       bmdu_bmdl_th = 40,
                        filter_bounds_bmdl_bmdu = FALSE){
   
   #,Kd = 10, hillN=2, pow = 2){
@@ -444,7 +456,7 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
     df_gi = data.frame(dose=dose,expr=exp)
     df_gi$dose = as.numeric(as.vector(df_gi$dose))
     
-    mod = fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
+    mod = BMDx::fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
     
     
     if(is.null(mod)){
@@ -460,6 +472,7 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
                                               min_dose = min_dose,
                                               max_dose = max_dose,
                                               interval_type,
+                                              loofth=loofth,
                                               max_low_dos_perc_allowd = max_low_dos_perc_allowd,
                                               max_max_dos_perc_allowd=max_max_dos_perc_allowd,
                                               ratio_filter = ratio_filter,
