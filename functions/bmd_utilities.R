@@ -5,11 +5,13 @@
 #' @param doses numeric vector of doses
 
 #' @return list containing a dataframe for every file sheet
+#' @importFrom graphics plot
+#' @importFrom graphics axis
 #' @export
 
 plot_model = function(model_list, gene_name, doses=c(0,5,10,20)){
-  plot(model_list[[gene_name]]$opt_mod, xaxt="n")
-  axis(side=1, at=doses, labels = TRUE)
+  graphics::plot(model_list[[gene_name]]$opt_mod, xaxt="n")
+  graphics::axis(side=1, at=doses, labels = TRUE)
 }
 
 
@@ -83,10 +85,22 @@ compute_anova_multiple_experiments = function(pheno_data_list,expression_list, t
           print("Anova running...")
         }
         
-        c(filtered_expression_values, variable_genes, non_variable_genes,matrix_with_anova_pvalue) %<-% filter_anova(exp_data=expression_list[[i]],
-                                                                                                                     pvalues_genes=pvalues_genes,
-                                                                                                                     adj.pval = adj.pval,
-                                                                                                                     p.th=p.th)
+        # c(filtered_expression_values, non_variable_genes, variable_genes, matrix_with_anova_pvalue) %<-% filter_anova(exp_data=expression_list[[i]],
+        #                                                                                                              pvalues_genes=pvalues_genes,
+        #                                                                                                              adj.pval = adj.pval,
+        #                                                                                                              p.th=p.th)
+        #
+        
+        res  = filter_anova(exp_data=expression_list[[i]],
+                            pvalues_genes=pvalues_genes,
+                            adj.pval = adj.pval,
+                            p.th=p.th)
+        
+        filtered_expression_values = res[[1]]
+        non_variable_genes = res[[2]]
+        variable_genes = res[[3]]
+        matrix_with_anova_pvalue = res[[4]]
+        
         
         list_of_filtered_expression_values[[names(pheno_data_list)[i]]][[as.character(tp)]] = filtered_expression_values
         list_of_variable_genes[[names(pheno_data_list)[i]]][[as.character(tp)]] = variable_genes
@@ -101,15 +115,30 @@ compute_anova_multiple_experiments = function(pheno_data_list,expression_list, t
                                     dc = dose_index,
                                     sc = sample_index)
       
-      c(filtered_expression_values, variable_genes, non_variable_genes,matrix_with_anova_pvalue) %<-% filter_anova(exp_data=expression_list[[i]],
-                                                                                                                   pvalues_genes=pvalues_genes,
-                                                                                                                   adj.pval = adj.pval,
-                                                                                                                   p.th=p.th)
+      # c(filtered_expression_values, non_variable_genes, variable_genes, matrix_with_anova_pvalue) %<-% filter_anova(exp_data=expression_list[[i]],
+      #                                                                                                              pvalues_genes=pvalues_genes,
+      #                                                                                                              adj.pval = adj.pval,
+      #                                                                                                              p.th=p.th)
+      res  = filter_anova(exp_data=expression_list[[i]],
+                          pvalues_genes=pvalues_genes,
+                          adj.pval = adj.pval,
+                          p.th=p.th)
       
-      list_of_filtered_expression_values[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = filtered_expression_values
-      list_of_variable_genes[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = variable_genes
-      list_of_non_variable_genes[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = non_variable_genes
-      list_of_matrices_with_anova_pvalue[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = matrix_with_anova_pvalue
+      filtered_expression_values = res[[1]]
+      non_variable_genes = res[[2]]
+      variable_genes = res[[3]]
+      matrix_with_anova_pvalue = res[[4]]
+      
+      # list_of_filtered_expression_values[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = filtered_expression_values
+      # list_of_variable_genes[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = variable_genes
+      # list_of_non_variable_genes[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = non_variable_genes
+      # list_of_matrices_with_anova_pvalue[[names(pheno_data_list)[i]]][[as.character(input$time_point_id)]] = matrix_with_anova_pvalue
+      
+      list_of_filtered_expression_values[[names(pheno_data_list)[i]]][[as.character(tp)]] = filtered_expression_values
+      list_of_variable_genes[[names(pheno_data_list)[i]]][[as.character(tp)]] = variable_genes
+      list_of_non_variable_genes[[names(pheno_data_list)[i]]][[as.character(tp)]] = non_variable_genes
+      list_of_matrices_with_anova_pvalue[[names(pheno_data_list)[i]]][[as.character(tp)]] = matrix_with_anova_pvalue
+      
     }
     
     
@@ -252,10 +281,12 @@ filter_anova = function(exp_data, pvalues_genes, adj.pval = TRUE, p.th=0.01){
     colnames(PValMat) = c("Gene","pvalue")
   
   PValMat[,2] = round(PValMat[,2],4)
+  if(length(not_var_genes)==1) not_var_genes=c(not_var_genes, not_var_genes)
+  if(length(var_genes)==1) var_genes=c(var_genes, var_genes)
+  
   toRet = list(filt_exp=filt_exp, not_var_genes=not_var_genes,var_genes = var_genes,PValMat=PValMat)
   
 }
-
 
 #' This function compute the BMD values for all the experiments by using the compute_bmd function.
 #' @param filtered_expression_data_list list of expression matrices
@@ -263,13 +294,22 @@ filter_anova = function(exp_data, pvalues_genes, adj.pval = TRUE, p.th=0.01){
 #' @param time_point_index column number of time point in the pheno data table
 #' @param dose_index column number of dose in the pheno data table
 #' @param sample_index column number of sample id in the pheno data table
-#' @param adj.pval is a boolean parameter. If true the anova pvalue will be adjusted by fdr correction
-#' @param p.th is the threshold for anova pvalues
-
-#' @return an list containing three items
-#' \item{filt_exp}{filtered matrix of expression values containing only the genes that survive the anova test}
-#' \item{not_var_genes}{genes that do not survive the anova test}
-#' \item{var_genes}{genes passing the anova test}
+#' @param interval_type  string specifying the type of interval to be used. Default ="delta"
+#' @param sel_mod_list vector of integers to specify the models to be fitted. Fossible models are "LL.2","LL.3","LL.3u","LL.4","LL.5","W1.2","W1.3","W1.4","W2.2","W2.3","W2.4","BC.4","BC.5","LL2.2","LL2.3","LL2.4","LL2.5","AR.2","AR.3","MM.2","MM.3","Linear", "Quadratic", "Cubic","Power2","Power3","Power4","Exponential","Hill05","Hill1","Hill2","Hill3","Hill4","Hill5"
+#' @param rl BMRF factor. Default value is 1.349
+#' @param constantVar boolean specifying if the assumption of constant variance hold true
+#' @param nCores the number of cores used to run the analysis
+#' @param lack_of_fit_pvalue integer specifying the lack of fit pvalue
+#' @param lowest_bmdl percentage of variability of minumum dose allowed
+#' @param highest_bmdu percentage of variablity of maximum dose allowed
+#' @param conf_interval confidence interval value
+#' @param first_only boolean value. If true only the best model (based on AIC criterion) is used to computet BMD/BMDL/BMDU/IC50 values. Otherwise, the models will be screended and the first one with lowest AIC and predicted alues satisfying all the filtering criteria will be selected
+#' @param ratio_filter boolean specifying if filtering is applied on bmd, bmdl and bmdu ratio values
+#' @param bmd_bmdl_th threshold for the bmd/bmdl ratio. Default = 20 meaning that genes whose bmd/bmdl > 20 are removed
+#' @param bmdu_bmd_th threshold for the bmdu/bmd ratio. Default = 20 meaning that genes whose bmdu/bmd > 20 are removed
+#' @param bmdu_bmdl_th threshold for the bmdu/bmdl ratio. Default = 40 meaning that genes whose bmu/bmdl > 40 are removed
+#' @param filter_bounds_bmdl_bmdu boolean specifyinig if models with bmdl=0 or bmdu = max dose should be removed
+#' @return a list containinig fitted models and resume values
 
 #' @export
 run_bmd_multiple_experiment = function(filtered_expression_data_list,
@@ -277,15 +317,129 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
                                        interval_type = "delta",
                                        time_point_index = 4,
                                        dose_index = 2, sample_index = 1,
-                                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349, lack_of_fit_pvalue= 0.1, nCores = 2){
+                                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349,
+                                       constantVar = TRUE,
+                                       conf_interval = 0.8,
+                                       lack_of_fit_pvalue= 0.1, nCores = 2,
+                                       lowest_bmdl=0,highest_bmdu=0,
+                                       first_only = FALSE,
+                                       ratio_filter = FALSE, bmd_bmdl_th = 20,
+                                       bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
+                                       filter_bounds_bmdl_bmdu = FALSE){
   
   list_of_bmd_fitted_models_and_resume_table = list()
+  # list_of_bmd_fitted_models_and_resume_table_filtered = list()
+  # list_of_bmd_resume_table_filtered = list()
+  
+  for(j in 1:length(pheno_data_list)){
+    print(paste("Experiment -------------------------------------------------------------------------------> ",j))
+    timep = as.numeric(names(filtered_expression_data_list[[j]]))
+    
+    maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
+    minDose = min(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
+    
+    for(i in timep){
+      print(paste("Timep -------------------------------------------------------------------------------> ",i))
+      
+      # print("before compute_bmd")
+      
+      # exp_data=filtered_expression_data_list[[names(pheno_data_list)[j]]][[as.character(i)]]
+      # pheno_data=pheno_data_list[[names(pheno_data_list)[j]]]
+      # time_t=as.character(i)
+      # tpc = time_point_index
+      # dc = dose_index
+      # sc = sample_index
+      # min_dose = minDose
+      # max_dose = maxDose
+      # max_low_dos_perc_allowd = lowest_bmdl
+      # max_max_dos_perc_allowd=highest_bmdu
+      
+      list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]]  = compute_bmd(
+        exp_data=filtered_expression_data_list[[names(pheno_data_list)[j]]][[as.character(i)]],
+        pheno_data=pheno_data_list[[names(pheno_data_list)[j]]],
+        time_t=as.character(i),
+        interval_type=interval_type,
+        tpc = time_point_index,
+        dc = dose_index,
+        sc = sample_index,
+        sel_mod_list = sel_mod_list,
+        rl = rl,
+        conf_interval = conf_interval,
+        constantVar = constantVar,
+        nCores=nCores,
+        min_dose = minDose,
+        max_dose = maxDose,
+        max_low_dos_perc_allowd = lowest_bmdl,
+        max_max_dos_perc_allowd=highest_bmdu,
+        first_only = first_only,
+        ratio_filter = ratio_filter,
+        bmd_bmdl_th = bmd_bmdl_th,
+        bmdu_bmd_th = bmdu_bmd_th,
+        bmdu_bmdl_th =
+          bmdu_bmdl_th,
+        filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu,
+        loofth = lack_of_fit_pvalue)
+      
+      
+      # list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]] = BMD_filters(
+      # 	BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]],
+      # 	max_dose = as.numeric(maxDose),
+      # 	min_dose = as.numeric(minDose),
+      # 	loofth = lack_of_fit_pvalue,
+      # 	max_low_dos_perc_allowd = lowest_bmdl,
+      # 	max_max_dos_perc_allowd = highest_bmdu, ratio_filter = FALSE, bmd_bmdl_th = 20, bmdu_bmd_th = 20, bmdu_bmdl_th = 40)
+      #
+      # list_of_bmd_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]  =  list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]$BMDValues_filtered
+    }
+  }
+  
+  gVars = list()
+  gVars$list_of_bmd_fitted_models = list_of_bmd_fitted_models_and_resume_table
+  # gVars$list_of_bmd_fitted_models_and_resume_table_filtered = list_of_bmd_fitted_models_and_resume_table_filtered
+  # gVars$list_of_bmd_resume_table_filtered = list_of_bmd_resume_table_filtered
+  class(gVars) = "run_bmd_multiple_experiment"
+  return(gVars)
+  
+}
+
+#' This function compute the BMD values for all the experiments by using the compute_bmd function.
+#' @param list_of_bmd_fitted_models_and_resume_table list of fitted models and resume tables from the function run_bmd_multiple_experiment
+#' @param filtered_expression_data_list list of expression matrices
+#' @param pheno_data_list list of pheno data tables
+#' @param dose_index column number of dose in the pheno data table
+#' @param nCores the number of cores used to run the analysis
+#' @param lack_of_fit_pvalue integer specifying the lack of fit pvalue
+#' @param lowest_bmdl percentage of variability of minumum dose allowed
+#' @param highest_bmdu percentage of variablity of maximum dose allowed
+#' @param first_only boolean value. If true only the best model (based on AIC criterion) is used to computet BMD/BMDL/BMDU/IC50 values. Otherwise, the models will be screended and the first one with lowest AIC and predicted alues satisfying all the filtering criteria will be selected
+#' @param ratio_filter boolean specifying if filtering is applied on bmd, bmdl and bmdu ratio values
+#' @param bmd_bmdl_th threshold for the bmd/bmdl ratio. Default = 20 meaning that genes whose bmd/bmdl > 20 are removed
+#' @param bmdu_bmd_th threshold for the bmdu/bmd ratio. Default = 20 meaning that genes whose bmdu/bmd > 20 are removed
+#' @param bmdu_bmdl_th threshold for the bmdu/bmdl ratio. Default = 40 meaning that genes whose bmu/bmdl > 40 are removed
+#' @param filter_bounds_bmdl_bmdu boolean specifyinig if models with bmdl=0 or bmdu = max dose should be removed
+
+#' @return list containing filtered models and resume values
+
+#' @export
+filter_bmd_multiple_experiment = function(list_of_bmd_fitted_models_and_resume_table,
+                                          filtered_expression_data_list,
+                                          pheno_data_list,
+                                          dose_index = 2,
+                                          lack_of_fit_pvalue= 0.1,
+                                          nCores = 2,
+                                          lowest_bmdl=0,highest_bmdu=0,
+                                          first_only = FALSE,
+                                          ratio_filter = FALSE,
+                                          bmd_bmdl_th = 20,
+                                          bmdu_bmd_th = 20,
+                                          bmdu_bmdl_th = 40,
+                                          filter_bounds_bmdl_bmdu=FALSE){
+  
   list_of_bmd_fitted_models_and_resume_table_filtered = list()
   list_of_bmd_resume_table_filtered = list()
   
   for(j in 1:length(pheno_data_list)){
-    
-    pTable = pheno_data_list[[j]]
+    print(paste("Experiment -------------------------------------------------------------------------------> ",j))
     timep = as.numeric(names(filtered_expression_data_list[[j]]))
     
     maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
@@ -293,25 +447,32 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
     
     for(i in timep){
       
-      list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]]  = compute_bmd(exp_data=filtered_expression_data_list[[names(pheno_data_list)[j]]][[as.character(i)]],
-                                                                                                                              pheno_data=pheno_data_list[[names(pheno_data_list)[j]]],
-                                                                                                                              time_t=as.character(i), #interval_type = input$Interval,
-                                                                                                                              tpc = time_point_index,
-                                                                                                                              dc = dose_index,
-                                                                                                                              sc = sample_index, sel_mod_list = sel_mod_list,rl = rl,nCores=nCores)
+      list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]] = BMD_filters(
+        BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]],
+        max_dose = as.numeric(maxDose),
+        min_dose = as.numeric(minDose),
+        loofth = lack_of_fit_pvalue,
+        max_low_dos_perc_allowd = lowest_bmdl,
+        max_max_dos_perc_allowd = highest_bmdu,
+        ratio_filter = ratio_filter,
+        bmd_bmdl_th = bmd_bmdl_th,
+        bmdu_bmd_th = bmdu_bmd_th,
+        bmdu_bmdl_th = bmdu_bmdl_th,
+        filter_bounds_bmdl_bmdu=filter_bounds_bmdl_bmdu)
       
-      list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose), min_dose = as.numeric(minDose),loofth = lack_of_fit_pvalue)
       list_of_bmd_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]  =  list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]]$BMDValues_filtered
     }
   }
   
   gVars = list()
-  gVars$list_of_bmd_fitted_models = list_of_bmd_fitted_models_and_resume_table
   gVars$list_of_bmd_fitted_models_and_resume_table_filtered = list_of_bmd_fitted_models_and_resume_table_filtered
   gVars$list_of_bmd_resume_table_filtered = list_of_bmd_resume_table_filtered
+  class(gVars) = "filtered_bmd_multiple_experiment"
+  
   return(gVars)
   
 }
+
 
 #' Function to combine the results of the parallel random split method
 #'
@@ -456,7 +617,7 @@ compute_bmd = function(exp_data,pheno_data,
     df_gi = data.frame(dose=dose,expr=exp)
     df_gi$dose = as.numeric(as.vector(df_gi$dose))
     
-    mod = BMDx::fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
+    mod = fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
     
     
     if(is.null(mod)){
@@ -693,34 +854,31 @@ fit_models_mselect = function(formula=expr~dose, dataframe=df_gi,sel_mod_list=se
   
 }
 
-#This function fit the models available as the fct parameter of function drm in the drc package
-fit_models = function(formula=expr~dose, dataframe=df_gi,f_list,f_names){
+#' This function fit the models available as the fct parameter of function drm in the drc package
+#' @param formula formula to be fitted. Default value expr~dose
+#' @param dataframe dataframe containing the data for the fitting
+#' @param f_list Vector with function models calls
+#' @param f_names Vector with names of models to be fitted. Availables models are: "LL.2","LL.3","LL.3u","LL.4","LL.5","W1.2","W1.3","W1.4","W2.2","W2.3","W2.4","BC.4","BC.5","LL2.2","LL2.3","LL2.4","LL2.5","AR.2","AR.3","MM.2","MM.3","Linear", "Quadratic", "Cubic","Power2","Power3","Power4","Exponential","Hill05","Hill1","Hill2","Hill3","Hill4","Hill5"
+#' @param mNames Vector with names of models to be fitted. Availables models are: "LL.2","LL.3","LL.3u","LL.4","LL.5","W1.2","W1.3","W1.4","W2.2","W2.3","W2.4","BC.4","BC.5","LL2.2","LL2.3","LL2.4","LL2.5","AR.2","AR.3","MM.2","MM.3","Linear", "Quadratic", "Cubic","Power2","Power3","Power4","Exponential","Hill05","Hill1","Hill2","Hill3","Hill4","Hill5"
+
+#' @return the fitted model
+#' @importFrom stats AIC
+#' @export
+fit_models = function(formula=expr~dose, dataframe,f_list,f_names,mNames){
   
-  # f_list = list(LL.2(),LL.3(),LL.3u(),LL.4(),LL.5(),
-  #               W1.2(),W1.3(),W1.4(),W2.2(),W2.3(),W2.4(),
-  #               BC.4(),BC.5(),
-  #               LL2.2(),LL2.3(),LL2.4(),LL2.5(),
-  #               AR.2(),AR.3(),
-  #               MM.2(),MM.3())
-  # f_names = c("LL.2()","LL.3()","LL.3u()","LL.4()","LL.5()",
-  #             "W1.2()","W1.3()","W1.4()","W2.2()","W2.3()","W2.4()",
-  #             "BC.4()","BC.5()",
-  #             "LL2.2()","LL2.3()","LL2.4()","LL2.5()",
-  #             "AR.2()","AR.3()",
-  #             "MM.2()","MM.3()")
-  #
   mod_list = list()
+  good_idx = c()
   for(i in 1:length(f_list)){
-    mod_list[[i]] = tryCatch({
+    mod_list[[mNames[i]]] = tryCatch({
       mod.internal.internal <- drc::drm(formula = formula, data=dataframe,type="continuous", fct=f_list[[i]])
+      good_idx=c(good_idx,i)
+      mod.internal.internal
     }, error = function(e) {
-      cat("Error\n")
       return(NULL)
     })
   }
   
   if(length(mod_list)==0){
-    print("No mod did the fitting\n")
     return(NULL)
   }
   
@@ -729,18 +887,24 @@ fit_models = function(formula=expr~dose, dataframe=df_gi,f_list,f_names){
   for(i in 1:length(mod_list)){
     mod = mod_list[[i]]
     if(is.null(mod)){
-      AIC_val = c(AIC_val,NA)
+      #AIC_val = c(AIC_val,NA)
     }else{
-      AIC_val = c(AIC_val,AIC(mod))
+      AIC_val = c(AIC_val,stats::AIC(mod))
     }
   }
+  
+  g_f_names = f_names[good_idx]
+  names(AIC_val) = g_f_names
+  mod_list = mod_list[mNames[good_idx]]
   
   opt_mod = mod_list[[which.min(AIC_val)]]
   #We compute the lack of fit test. In this case we can filter model with a pvalue greater that 0.05
   x = drc::modelFit(opt_mod)
   
-  return(list(opt_mod = opt_mod,mod_name = f_names[which.min(AIC_val)],loof_test = x))
+  return(list(opt_mod = opt_mod,mod_name = g_f_names[which.min(AIC_val)],AIC_val=AIC_val,loof_test = x,mod_list=mod_list))
 }
+
+
 
 #' This function filters the gene resulting from the compute_bmd function.
 #' In particular the genes with BMD value greter than the maximum dose and the genes with a pvalue smaller that 0.1 are removed
@@ -759,8 +923,16 @@ fit_models = function(formula=expr~dose, dataframe=df_gi,f_list,f_names){
 
 #' @export
 
-BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0,
-                       loofth = 0.1, ratio_filter = FALSE, bmd_bmdl_th = 20, bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
+BMD_filters = function(BMDRes,
+                       max_dose = 20, 
+                       min_dose, 
+                       max_low_dos_perc_allowd = 0, 
+                       max_max_dos_perc_allowd = 0,
+                       loofth = 0.1, 
+                       ratio_filter = FALSE, 
+                       bmd_bmdl_th = 20, 
+                       bmdu_bmd_th = 20, 
+                       bmdu_bmdl_th = 40,
                        filter_bounds_bmdl_bmdu=FALSE){
   
   BMDValues = BMDRes$BMDValues

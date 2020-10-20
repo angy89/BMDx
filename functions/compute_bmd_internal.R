@@ -38,7 +38,7 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
       if(mod_name %in% c("Linear","Quadratic","Cubic","Power2","Power3","Power4","Exponential",
                          "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
         dose = dataframe$dose
-        bmd_val = BMDx::EDLin(lmObject = opt_mod,respLev = sd_level, dose=dose, ci = conf_interval)
+        bmd_val = EDLin(lmObject = opt_mod,respLev = sd_level, dose=dose, ci = conf_interval)
         
         if(is.null(bmd_val) == FALSE){
           bmd_val = cbind(bmd_val, matrix(c(mod_name, mod$X[mod_name,3]),1,2))
@@ -74,6 +74,7 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
     }, error = function(e) {
       print(e)
       bmd_val = NULL
+      return(NULL)
     })
     
     

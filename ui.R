@@ -238,13 +238,27 @@ fluidPage(
       ),
       shinyBS::bsModal("computeBMD", "Compute BMD Value", "bmd_button", size="large",
                        fluidRow(
-                         column(6, textInput("RespLev", label = "Response Level", value =1.349)),
-                         column(6, checkboxInput("constantVar", "Assumption of Constant Variance", value = TRUE))
+                         column(3, textInput("RespLev", label = "Response Level", value =1.349)),
+                         column(3, textInput("RespLev", label = "Response Level", value =1.349)),
+                         column(3, checkboxInput("constantVar", "Assumption of Constant Variance", value = TRUE)),
+                         column(3, sliderInput("conf_interval", "Confidece Interval:", min = 0, max = 1, value = 0.95))
                        ),
                        fluidRow(
                          column(4,selectInput("LOOF", "Lack-of-fit PValue Th:", choices=c(0.3,0.2,0.1,0.05),selected=0.1)),
+                         column(4, checkboxInput("first_model_AIC", "Only the optimal model (min AIC) is considered", value = FALSE))
+                         
+                       ),
+                       fluidRow(
                          column(4,selectInput("min_dose_perc", "Lowest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0)),
-                         column(4,selectInput("max_dose_perc", "Highest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0))
+                         column(4,selectInput("max_dose_perc", "Highest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0)),
+                         column(4, checkboxInput("filter_bounds_bmdl_bmdu", "Filter by boundary (BMDL=0 or BMDU=maxDose)", value = FALSE))
+                       ),
+                       fluidRow(
+                         column(3, sliderInput("bmd_bmdl_th", "BMD/BMDL ratio:", min = 0, max = 100, value = 20)),
+                         column(3, sliderInput("bmdu_bmd_th", "BMDU/BMD ratio:", min = 0, max = 100, value = 20)),
+                         column(3, sliderInput("bmdu_bmdl_th", "BMDU/BMDL ratio:", min = 0, max = 100, value = 40)),
+                         column(3, checkboxInput("ratio_filter", "Ratio filters", value = FALSE))
+                         
                        ),
                        fluidRow(
                          column(3, selectInput("BMDNCores", "Number of cores:", choices=c(1:25), selected = 3))
@@ -399,11 +413,26 @@ fluidPage(
                                                              #tabsetPanel(
                                                              tabPanel("Gene Level", 
                                                                       fluidRow(
-                                                                        column(4,uiOutput("ExptimeSelBMD")),
-                                                                        column(4,uiOutput("timePointSel2")),
-                                                                        column(4,downloadButton("downloadBMDData", "Download"))
+                                                                        column(3,uiOutput("ExptimeSelBMD")),
+                                                                        column(3,uiOutput("timePointSel2"))
                                                                       ),
-                                                                      
+                                                                      fluidRow(
+                                                                        column(3, sliderInput("bmd_bmdl_th2", "BMD/BMDL ratio:", min = 0, max = 100, value = 20)),
+                                                                        column(3, sliderInput("bmdu_bmd_th2", "BMDU/BMD ratio:", min = 0, max = 100, value = 20)),
+                                                                        column(3, sliderInput("bmdu_bmdl_th2", "BMDU/BMDL ratio:", min = 0, max = 100, value = 40)),
+                                                                        column(3, checkboxInput("ratio_filter2", "Ratio filters", value = FALSE))
+                                                                      ),
+                                                                      fluidRow(
+                                                                        column(3,selectInput("min_dose_perc2", "Lowest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0)),
+                                                                        column(3,selectInput("max_dose_perc2", "Highest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0)),
+                                                                        column(3, checkboxInput("filter_bounds_bmdl_bmdu2", "Filter by boundary (BMDL=0 or BMDU=maxDose)", value = FALSE)),
+                                                                        # column(4, checkboxInput("Apply_filter", "Apply Filters", value = FALSE))
+                                                                        column(3, actionButton("Apply_filter", "Apply Filters"))
+                                                                        
+                                                                      ),
+                                                                      fluidRow(
+                                                                        column(3,downloadButton("downloadBMDData", "Download"))
+                                                                      ),
                                                                       fluidRow(
                                                                         column(12, DT::dataTableOutput("BMD_table"))
                                                                       ),

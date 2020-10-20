@@ -57,6 +57,7 @@ source("functions/fit_models_mselect2.R")
 source("functions/fit_models_lm.R")
 
 source("functions/path_grid_plot.R")
+source("functions/plot_grid.R")
 source("functions/enrich_functions.R")
 source("functions/goHier.R")
 source("functions/kegg_mats.R")
@@ -538,10 +539,16 @@ shinyServer(function(input, output, session) {
             })
           }
           
-          c(EXP_FIL, var_genes, not_var_genes,PValMat) %<-% filter_anova(exp_data=gVars$inputGx[[i]], 
+          EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = c()
+          VG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = c()
+          NVG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = c()
+          PValMat_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = c()
+          
+          c(EXP_FIL, not_var_genes,var_genes, PValMat) %<-% filter_anova(exp_data=gVars$inputGx[[i]], 
                                                                          pvalues_genes=pvalues_genes, 
                                                                          adj.pval = input$adjBool, 
                                                                          p.th=as.numeric(input$anovaPvalTh))
+          
           
           EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = EXP_FIL
           VG_List[[names(gVars$phTable)[i]]][[as.character(tp)]] = var_genes
@@ -556,10 +563,17 @@ shinyServer(function(input, output, session) {
                                       dc = gVars$doseColID, 
                                       sc = gVars$sampleColID)
         
+        EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = c()
+        VG_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = c()
+        NVG_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = c()
+        PValMat_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = c()
+        
+        
         c(EXP_FIL, var_genes, not_var_genes,PValMat) %<-% filter_anova(exp_data=gVars$inputGx, 
                                                                        pvalues_genes=pvalues_genes, 
                                                                        adj.pval = input$adjBool, 
                                                                        p.th=as.numeric(input$anovaPvalTh))
+        
         EXP_FIL_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = EXP_FIL
         VG_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = var_genes
         NVG_List[[names(gVars$phTable)[i]]][[as.character(input$time_point_id)]] = not_var_genes
@@ -601,8 +615,8 @@ shinyServer(function(input, output, session) {
     
     withProgress(message = 'Running BMD', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
     MQ_BMDList = list()
-    MQ_BMDListFiltered = list()
-    MQ_BMDListFilteredValues = list()
+    # MQ_BMDListFiltered = list()
+    # MQ_BMDListFilteredValues = list()
     
     for(j in 1:length(gVars$phTable)){
       print("this is the j ----> ")
@@ -619,30 +633,118 @@ shinyServer(function(input, output, session) {
 
         print("xxx")
         
-        MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
-                              time_t=as.character(i), #interval_type = input$Interval,
-                              tpc = gVars$TPColID, 
-                              dc = gVars$doseColID, 
-                              sc = gVars$sampleColID, sel_mod_list = as.numeric(input$ModGroup),rl = as.numeric(input$RespLev),constantVar = input$constantVar, nCores = as.numeric(input$BMDNCores))
+        MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], 
+                                                                                pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
+                                                                                time_t=as.character(i), 
+                                                                                interval_type = "delta",
+                                                                                tpc = gVars$TPColID, 
+                                                                                dc = gVars$doseColID, 
+                                                                                sc = gVars$sampleColID, 
+                                                                                sel_mod_list = as.numeric(input$ModGroup),
+                                                                                rl = as.numeric(input$RespLev),
+                                                                                conf_interval = as.numeric(input$conf_interval),
+                                                                                constantVar = input$constantVar, 
+                                                                                nCores = as.numeric(input$BMDNCores),
+                                                                                min_dose = minDose,
+                                                                                max_dose = maxDose,
+                                                                                max_low_dos_perc_allowd = as.numeric(input$min_dose_perc), 
+                                                                                max_max_dos_perc_allowd= as.numeric(input$max_dose_perc), 
+                                                                                first_only = input$first_model_AIC,  
+                                                                                ratio_filter = input$ratio_filter, 
+                                                                                bmd_bmdl_th = as.numeric(input$bmd_bmdl_th), 
+                                                                                bmdu_bmd_th = as.numeric(input$bmdu_bmd_th), 
+                                                                                bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th),
+                                                                                filter_bounds_bmdl_bmdu = FALSE, #input$filter_bounds_bmdl_bmdu,
+                                                                                loofth = as.numeric(input$LOOF)
+                                                                                )
 
-        MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose),min_dose = as.numeric(minDose),max_low_dos_perc_allowd = as.numeric(input$min_dose_perc),max_max_dos_perc_allowd = as.numeric(input$max_dose_perc)  ,loofth = as.numeric(input$LOOF))
-        MQ_BMDListFilteredValues[[names(gVars$phTable)[j]]][[as.character(i)]]  =  MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]$BMDValues_filtered
+        
+
+        # MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]],max_dose = as.numeric(maxDose),min_dose = as.numeric(minDose),max_low_dos_perc_allowd = as.numeric(input$min_dose_perc),max_max_dos_perc_allowd = as.numeric(input$max_dose_perc)  ,loofth = as.numeric(input$LOOF))
+        # MQ_BMDListFilteredValues[[names(gVars$phTable)[j]]][[as.character(i)]]  =  MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]$BMDValues_filtered
       }
       incProgress(1/length(gVars$phTable), detail = paste("BMD Experiment: ",j+1," Experiment: ",j+1 ,"/",length(gVars$phTable),sep=""))
       
     }
     })
 
+    print("test")
     gVars$MQ_BMD = MQ_BMDList
-    gVars$MQ_BMD_filtered = MQ_BMDListFiltered
-    gVars$MQ_BMDListFilteredValues = MQ_BMDListFilteredValues
-    gVars$MQ_BMD_filtered2 = gVars$MQ_BMD_filtered
+    gVars$MQ_BMD_filtered = NULL#MQ_BMDListFiltered
+    gVars$MQ_BMDListFilteredValues = NULL #MQ_BMDListFilteredValues
+    gVars$MQ_BMD_filtered2 = NULL #gVars$MQ_BMD_filtered
     
     shinyBS::toggleModal(session, "computeBMD", toggle="close")
     shinyBS::updateButton(session, "bmd_button", style="success", icon=icon("check-circle"))
     shinyBS::updateCollapse(session, "bsSidebar1", open="PATHWAY ENRICHMENT", style=list("COMPUTE BMD"="success","PATHWAY ENRICHMENT"="warning"))
     shiny::updateTabsetPanel(session, "display",selected = "BMDTab")
   })
+  
+  observeEvent(input$Apply_filter, {
+    shiny::validate(
+      need(!is.null(gVars$phTable), "No Phenotype File Provided!")
+    )
+    
+    shiny::validate(
+      need(!is.null(gVars$EXP_FIL), "No Phenotype File Provided!")
+    )
+    shiny::validate(
+      need(!is.null(gVars$MQ_BMD), "No BMD computed!")
+    )
+    
+    
+    
+    withProgress(message = 'Running BMD', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
+      
+      MQ_BMDListFiltered = list()
+      MQ_BMDListFilteredValues = list()
+      
+      for(j in 1:length(gVars$phTable)){
+        print("this is the j ----> ")
+        print(j)
+        
+        pTable = gVars$phTable[[j]]
+        timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
+        print(timep)
+        
+        maxDose = max(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
+        minDose = min(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
+        
+        for(i in timep){
+          
+          print("xxx")
+          
+          MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]   = BMD_filters(BMDRes = gVars$MQ_BMD[[names(gVars$EXP_FIL)[j]]][[as.character(i)]],
+                                                                                           max_dose = as.numeric(maxDose), 
+                                                                                           min_dose = as.numeric(minDose), 
+                                                                                           max_low_dos_perc_allowd =  as.numeric(input$min_dose_perc2), 
+                                                                                           max_max_dos_perc_allowd = as.numeric(input$max_dose_perc2),
+                                                                                           loofth = as.numeric(input$LOOF), 
+                                                                                           ratio_filter = input$ratio_filter2, 
+                                                                                           bmd_bmdl_th = as.numeric(input$bmd_bmdl_th2), 
+                                                                                           bmdu_bmd_th = as.numeric(input$bmdu_bmd_th2), 
+                                                                                           bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th2),
+                                                                                           filter_bounds_bmdl_bmdu = input$filter_bounds_bmdl_bmdu2)
+          
+          MQ_BMDListFilteredValues[[names(gVars$phTable)[j]]][[as.character(i)]]  =  MQ_BMDListFiltered[[names(gVars$phTable)[j]]][[as.character(i)]]$BMDValues_filtered
+        }
+        incProgress(1/length(gVars$phTable), detail = paste("BMD Experiment: ",j+1," Experiment: ",j+1 ,"/",length(gVars$phTable),sep=""))
+        
+      }
+    })
+    
+    print("test")
+    # gVars$MQ_BMD = MQ_BMDList
+    gVars$MQ_BMD_filtered = MQ_BMDListFiltered
+    gVars$MQ_BMDListFilteredValues = MQ_BMDListFilteredValues
+    gVars$MQ_BMD_filtered2 = gVars$MQ_BMD_filtered
+    
+    # shinyBS::toggleModal(session, "computeBMD", toggle="close")
+    # shinyBS::updateButton(session, "bmd_button", style="success", icon=icon("check-circle"))
+    # shinyBS::updateCollapse(session, "bsSidebar1", open="PATHWAY ENRICHMENT", style=list("COMPUTE BMD"="success","PATHWAY ENRICHMENT"="warning"))
+    shiny::updateTabsetPanel(session, "display",selected = "BMDTab")
+  })
+  
   
   output$upsetplot = renderPlot({
     print(input$range)
@@ -1175,14 +1277,6 @@ shinyServer(function(input, output, session) {
       
       print("I'm saving bmd tables")
       
-      # write.xlsx(gVars$MQ_BMD_filtered[[1]]$BMDValues_filtered, file, sheetName = names(gVars$MQ_BMD_filtered)[1]) 
-      # if(length(gVars$MQ_BMD_filtered)>1){
-      #   for(i in 2:length(gVars$MQ_BMD_filtered)){
-      #     if(nrow(gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered)>0){
-      #       write.xlsx(gVars$MQ_BMD_filtered[[i]]$BMDValues_filtered, file, sheetName =  names(gVars$MQ_BMD_filtered)[i], append = TRUE) 
-      #     }
-      #   }
-      # }
       
       
       firstCall = TRUE
@@ -1962,16 +2056,27 @@ shinyServer(function(input, output, session) {
   
   
   output$BMD_table <- DT::renderDataTable({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
-    print("BMD_tab")
- 
-    gVars$MQ_BMD_filtered = gVars$MQ_BMD_filtered2
     
+    print("plot table")
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
+    if(is.null(gVars$MQ_BMD_filtered2)==FALSE){ 
+      gVars$MQ_BMD_filtered = gVars$MQ_BMD_filtered2
+      BMD_tab = gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab = gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues
+      
+    }
+    
+    # print("BMD_tab")
+    # 
+    # gVars$MQ_BMD_filtered = gVars$MQ_BMD_filtered2
+    # 
+    # 
+    # BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
   
     BMD_tab = BMD_tab#[,1:5]
     print("printing BMD table")
@@ -1983,7 +2088,7 @@ shinyServer(function(input, output, session) {
     BMD_tab[,"BMDU"] =  as.numeric(as.vector(BMD_tab[,"BMDU"]))
         
     #save(BMD_tab, file="../BMD_tab.RData")
-    
+    print("plot")
     #DT::datatable(BMD_tab,options = list(pageLength = 5))
     
     BMD_tab
@@ -2018,25 +2123,30 @@ shinyServer(function(input, output, session) {
     selectedrowindex = as.numeric(selectedrowindex)
     print(selectedrowindex)
     
-    BMDVF = gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
+    if(is.null(gVars$MQ_BMD_filtered2)){ 
+      
+      BMDVF = gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues
+
+    }else{
+      gVars$MQ_BMD_filtered = gVars$MQ_BMD_filtered2
+      BMDVF = gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered
+    }
     
-    geneName = as.character(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Gene"])
-    geneBMD = as.numeric(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMD"])
-    geneBMDL = as.numeric(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDL"])
-    geneBMDU = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"BMDU"]))
-    modName = as.character(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"MOD_NAME"])
-    icval = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"IC50/EC50"]))
-    decreasing = as.numeric(as.vector(gVars$MQ_BMD_filtered[[input$experiment_bmd]][[input$time_point_id_visual2]]$BMDValues_filtered[selectedrowindex,"Decreasing"]))
+
+    geneName = as.character(as.vector(BMDVF[selectedrowindex,"Gene"]))
+    geneBMD = as.numeric(BMDVF[selectedrowindex,"BMD"])
+    geneBMDL = as.numeric(BMDVF[selectedrowindex,"BMDL"])
+    geneBMDU = as.numeric(as.vector(BMDVF[selectedrowindex,"BMDU"]))
+    modName = as.character(BMDVF[selectedrowindex,"MOD_NAME"])
+    icval = as.numeric(as.vector(BMDVF[selectedrowindex,"IC50/EC50"]))
     
+  
     print(paste("Selected rows --> ", selectedrowindex))
     print(paste("Selected rows gene name--> ", geneName))
     
     #NB: in all three lines I was using 1 before, instead of input$time_point_id_visual
-    print(names(gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list))
-    print(geneName %in% names(gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list))
-    
-    #Select mod to plot
-    modToPlot = gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list[[geneName]]$opt_mod
+     #Select mod to plot
+    modToPlot = gVars$MQ_BMD[[input$experiment_bmd]][[input$time_point_id_visual2]]$opt_models_list[[geneName]]$model
    # modToPlot = fm$CD163$opt_mod
     print("Class optimal model ------------------>>>>>>>>>>>>>>> ")
     class(modToPlot)
@@ -2633,7 +2743,7 @@ shinyServer(function(input, output, session) {
     shiny::validate(need(is.null(gVars$BMDSettings), "No BMD Settings!"))
     
     if(input$BMDSettings == "All"){
-      selected = c(1,2,4,5,6,7,8,12,13,18:34) 
+      selected = 18:34#c(1,2,4,5,6,7,8,12,13,18:34) 
     }
     if(input$BMDSettings == "Regulatory"){
       selected = 22:34
@@ -2655,6 +2765,7 @@ shinyServer(function(input, output, session) {
         nDose = min(nDoses)-1
         DF =  nDose - 1
         modDF = c(2,3,Inf, 4,5,2,3,4,Inf,Inf,Inf,4,5,Inf,Inf,Inf,Inf,2,3,2,3,1,2,3,2,3,4,1,1,1,2,3,4,5)
+        modDF = c(rep(Inf, 17), modDF[18:length(modDF)])
         selected = which(modDF<=DF)
       }else{
         selected = c()
@@ -2663,20 +2774,43 @@ shinyServer(function(input, output, session) {
     
     tags$div(align = 'left',class = 'multicol', 
              checkboxGroupInput("ModGroup", label = "Models available", 
-                                choices = list("Linear" = 22, "Quadratic" = 23, "Cubic" = 24,
-                                               "Power2" = 25, "Power3" = 26,"Power4" = 27,
-                                               "Exponential" = 28,
-                                               "Hill05"= 29, "Hill1" = 30,
-                                               "Hill2" = 31, "Hill3" = 32, 
-                                               "Hill4" = 33, "Hill5" = 34,
-                                               "AR.2"=18,"AR.3"= 19,
-                                               "MM.2"=20,"MM.3"= 21
-                                               #"LL.2"=1,"LL.3"=2,
-                                               #"LL.4"=4,"LL.5"=5,
-                                               #"W1.2"=6,"W1.3"=7,"W1.4"=8,
-                                               #"BC.4"=12,"BC.5"=13
-                                               #"LL2.2"=14,"LL2.3"=15,"LL2.4"=16,"LL2.5"=17,"LL.3u"=3,"W2.2"=9,"W2.3"=10,"W2.4"=11
+                                choices = list(
+                                  # "LL.2"=1, "LL.3"=2,"LL.3u"=3,"LL.4"=4,"LL.5"=5,
+                                  # "W1.2"=6,"W1.3"=7,"W1.4"=8, "W2.2"=9,"W2.3"=10,"W2.4"=11,
+                                  # "BC.4"=12,"BC.5"=13,
+                                  # "LL2.2"=14, "LL2.3"=15,"LL2.4"=16,"LL2.5"=17,
+                                  "AR.2"=18,
+                                  "AR.3"=19,
+                                  "MM.2"=20,
+                                  "MM.3"=21,
+                                  "Linear"=22,
+                                  "Quadratic"=23,
+                                  "Cubic"=24,
+                                  "Power2"=25,
+                                  "Power3"=26,
+                                  "Power4"=27,
+                                  "Exponential"=28,
+                                  "Hill05"=29,
+                                  "Hill1"=30,
+                                  "Hill2"=31,
+                                  "Hill3"=32,
+                                  "Hill4"=33,
+                                  "Hill5"=34
                                 ),
+                                #   list("Linear" = 22, "Quadratic" = 23, "Cubic" = 24,
+                                #                "Power2" = 25, "Power3" = 26,"Power4" = 27,
+                                #                "Exponential" = 28,
+                                #                "Hill05"= 29, "Hill1" = 30,
+                                #                "Hill2" = 31, "Hill3" = 32, 
+                                #                "Hill4" = 33, "Hill5" = 34,
+                                #                "AR.2"=18,"AR.3"= 19,
+                                #                "MM.2"=20,"MM.3"= 21
+                                #                #"LL.2"=1,"LL.3"=2,
+                                #                #"LL.4"=4,"LL.5"=5,
+                                #                #"W1.2"=6,"W1.3"=7,"W1.4"=8,
+                                #                #"BC.4"=12,"BC.5"=13
+                                #                #"LL2.2"=14,"LL2.3"=15,"LL2.4"=16,"LL2.5"=17,"LL.3u"=3,"W2.2"=9,"W2.3"=10,"W2.4"=11
+                                # ),
                                 selected = selected,inline = FALSE)
     )
   })
