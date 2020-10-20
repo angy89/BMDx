@@ -149,3 +149,26 @@ inner.check.model = function(bmd, bmdl, bmdu, ic50,
   
 }
 
+
+#' Function to compute numerical derivative of the model's predicted values
+#'
+#' @param fittedModel is a model fitted to the gene expression data
+#' @param dose is the numeric vecotr of doses
+#' @return range.length number of interpolated points between the minimum and maximum doses. Default value is 1000
+#' @keywords internal
+#' @export
+# return -1 if decreasing; 0 if not monotonic and 1 if increasing
+monotonicity = function(fittedModel,dose,range.length = 1000){
+  
+  step = (max(dose)-min(dose))/range.length
+  x = seq(min(dose),max(dose),length.out = range.length)
+  
+  f1  = predict(fittedModel, newdata = data.frame(dose = x[1:(length(x)-1)]))
+  f2  = predict(fittedModel, newdata = data.frame(dose = x[2:length(x)]))
+  
+  deriv = (f2-f1)/step
+  
+  if(all(deriv>0)) return(1)
+  if(all(deriv<0)) return(-1)
+  return(0)
+}
