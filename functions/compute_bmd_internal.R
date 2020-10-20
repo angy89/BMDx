@@ -1,0 +1,151 @@
+#' This function compute the BMD values for all the experiments by using the compute_bmd function.
+#' @param mod object from fit_models_mselect2
+#' @param dataframe  pheno data tables
+#' @param sd_level standard deviation of controls
+#' @param dose vector of doses
+#' @param conf_interval confidence interval value
+#' @param min_dose min dose
+#' @param max_dose max dose
+#' @param max_low_dos_perc_allowd percentage of variability of minumum dose allowed
+#' @param max_max_dos_perc_allowd percentage of variablity of maximum dose allowed
+#' @param interval_type  string specifying the type of interval to be used. Default ="delta"
+#' @param loofth integer specifying the lack of fit pvalue
+#' @param ratio_filter boolean specifying if filtering is applied on bmd, bmdl and bmdu ratio values
+#' @param bmd_bmdl_th threshold for the bmd/bmdl ratio. Default = 20 meaning that genes whose bmd/bmdl > 20 are removed
+#' @param bmdu_bmd_th threshold for the bmdu/bmd ratio. Default = 20 meaning that genes whose bmdu/bmd > 20 are removed
+#' @param bmdu_bmdl_th threshold for the bmdu/bmdl ratio. Default = 40 meaning that genes whose bmu/bmdl > 40 are removed
+#' @param first_only boolean value. If true only the best model (based on AIC criterion) is used to computet BMD/BMDL/BMDU/IC50 values. Otherwise, the models will be screended and the first one with lowest AIC and predicted alues satisfying all the filtering criteria will be selected
+#' @param filter_bounds_bmdl_bmdu boolean specifyinig if models with bmdl=0 or bmdu = max dose should be removed
+#' @return a list containinig fitted models and resume values
+#' @export
+compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
+                                sd_level, dose, conf_interval, min_dose,max_dose,
+                                interval_type, loofth = 0.1,
+                                max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0,
+                                ratio_filter = FALSE, bmd_bmdl_th = 20,
+                                bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
+                                filter_bounds_bmdl_bmdu = FALSE){
+  
+  n_models = nrow(mod$X)
+  if(first_only) max_index = 1 else max_index  = n_models
+  
+  for(i in 1:max_index){
+    opt_mod = mod$fitted_models[[i]]
+    mod_name = names(mod$fitted_models)[i]
+    mod$X[mod_name,]
+    
+    bmd_val = tryCatch({
+      if(mod_name %in% c("Linear","Quadratic","Cubic","Power2","Power3","Power4","Exponential",
+                         "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
+        dose = dataframe$dose
+        bmd_val = BMDx::EDLin(lmObject = opt_mod,respLev = sd_level, dose=dose, ci = conf_interval)
+        
+        if(is.null(bmd_val) == FALSE){
+          bmd_val = cbind(bmd_val, matrix(c(mod_name, mod$X[mod_name,3]),1,2))
+          colnames(bmd_val) = c("BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOFPVal")#,"ANOVAPVal")
+        }else{
+          bmd_val = NULL
+        }
+      }else{
+        monotonic_behaviour = monotonicity(fittedModel=opt_mod,dose,range.length = 1000)
+        
+        if(monotonic_behaviour == 0){
+          bmd_val = NULL
+        }else{
+          if(monotonic_behaviour==1){
+            response_level = mean(exp[which(dose==0)]) + sd_level
+            decreasing = FALSE
+          }else if (monotonic_behaviour==-1){
+            response_level = mean(exp[which(dose==0)]) - sd_level
+            decreasing = TRUE
+          }
+          
+          bmd_val = drc::ED(object = opt_mod, respLev = response_level, interval = interval_type, level = conf_interval, type = "absolute", display=FALSE)[, c(1,3,4), drop = FALSE]
+          
+          ic50 = max(dataframe$expr) - ((max(dataframe$expr) - min(dataframe$expr))/2)
+          icval = drc::ED(object = opt_mod, respLev = ic50, interval = interval_type, level = conf_interval, type = "absolute")[, 1, drop = FALSE]
+          bmd_val = cbind(bmd_val,icval, decreasing)
+          bmd_val = cbind(bmd_val, matrix(c(mod_name, mod$X[mod_name,3]),1,2))
+          colnames(bmd_val) = c("BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOFPVal")#,"ANOVAPVal")
+          
+        }
+      }
+      bmd_val
+    }, error = function(e) {
+      print(e)
+      bmd_val = NULL
+    })
+    
+    
+    if(!is.null(bmd_val)){
+      # print(bmd_val)
+      pass_filter = inner.check.model(bmd = as.numeric(bmd_val[1,"BMD"]),
+                                      bmdl= as.numeric(bmd_val[1,"BMDL"]),
+                                      bmdu= as.numeric(bmd_val[1,"BMDU"]),
+                                      ic50= as.numeric(bmd_val[1,"IC50/EC50"]),
+                                      fitting.pval= as.numeric(bmd_val[1,"LOFPVal"]),
+                                      min_dose=min_dose, max_dose=max_dose, loofth = loofth,
+                                      max_low_dos_perc_allowd = max_low_dos_perc_allowd,
+                                      max_max_dos_perc_allowd = max_max_dos_perc_allowd,
+                                      ratio_filter = ratio_filter, bmd_bmdl_th = bmd_bmdl_th,
+                                      bmdu_bmd_th = bmdu_bmd_th, bmdu_bmdl_th = bmdu_bmdl_th,
+                                      filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu)
+      
+      # print(paste("MODEL:", mod_name, "PASS FILTER:", pass_filter))
+      
+      if(pass_filter){
+        toRetList = list("bmd_val" = bmd_val, "mod" = opt_mod)
+        return(toRetList)
+      }
+    }
+    
+    
+  }
+  
+  return(NULL)
+}
+
+inner.check.model = function(bmd, bmdl, bmdu, ic50,
+                             fitting.pval,
+                             min_dose,
+                             max_dose,
+                             loofth = 0.1,
+                             max_low_dos_perc_allowd = 0,
+                             max_max_dos_perc_allowd = 0,
+                             ratio_filter = FALSE,
+                             bmd_bmdl_th = 20,
+                             bmdu_bmd_th = 20,
+                             bmdu_bmdl_th = 40,
+                             filter_bounds_bmdl_bmdu = FALSE){
+  
+  # none of the predicted values are NA
+  values_are_not_na = (is.na(bmd)==FALSE) & (is.na(bmdl)==FALSE) & (is.na(bmdu)==FALSE) & (is.na(ic50)==FALSE)
+  
+  #values are not negative
+  values_are_not_negative = (bmd>=0) & (bmdl>=0) & (bmdu>=0) & (ic50>=0)
+  
+  # tolerannce on the bmd minimum and maximum value
+  bmd_pass_low_dose_check = (bmd > (min_dose - (min_dose*max_low_dos_perc_allowd))) #& (bmdl > (min_dose - (min_dose*max_low_dos_perc_allowd))) & (bmdu > (min_dose - (min_dose*max_low_dos_perc_allowd)))
+  bmd_pass_max_dose_check = (bmd < (max_dose - (max_dose*max_max_dos_perc_allowd))) #& bmdl < (max_dose - (max_dose*max_max_dos_perc_allowd)) & bmdu < (max_dose - (max_dose*max_max_dos_perc_allowd))
+  
+  # lack of fit pvalue
+  pass_loof_test = fitting.pval >= loofth
+  
+  # if pass is true it will be an accepted model
+  pass = values_are_not_na & values_are_not_negative & bmd_pass_low_dose_check & bmd_pass_max_dose_check & pass_loof_test
+  
+  if(ratio_filter){
+    pass_ratio_filter = (bmd/bmdl > bmd_bmdl_th) & (bmdu/bmd > bmdu_bmd_th) & (bmdu/bmdl > bmdu_bmdl_th)
+    pass = pass & pass_ratio_filter
+  }
+  
+  if(filter_bounds_bmdl_bmdu){
+    bounds = bmdl!=0 & bmdu!= max_dose
+    pass = pass & bounds
+    
+  }
+  
+  return(pass)
+  
+}
+

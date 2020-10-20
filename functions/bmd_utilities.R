@@ -352,21 +352,51 @@ listComb = function(x, ...) {
 #' @param exp_data expression matrix
 #' @param pheno_data pheno data table
 #' @param time_t time point at which perform the analyis. It has to be one of the values reported in the pheno data table
+#' @param interval_type  string specifying the type of interval to be used. Default ="delta"
 #' @param tpc column number of time point in the pheno data table
 #' @param dc column number of dose in the pheno data table
 #' @param sc column number of sample id in the pheno data table
-#' @param sel_mod_list
-#' @param rl
+#' @param sel_mod_list vector of integers to specify the models to be fitted. Fossible models are "LL.2","LL.3","LL.3u","LL.4","LL.5","W1.2","W1.3","W1.4","W2.2","W2.3","W2.4","BC.4","BC.5","LL2.2","LL2.3","LL2.4","LL2.5","AR.2","AR.3","MM.2","MM.3","Linear", "Quadratic", "Cubic","Power2","Power3","Power4","Exponential","Hill05","Hill1","Hill2","Hill3","Hill4","Hill5"
+#' @param rl BMRF factor. Default value is 1.349
+#' @param constantVar boolean specifying if the assumption of constant variance hold true
 #' @param nCores the number of cores used to run the analysis
+#' @param conf_interval confidence interval value
+#' @param min_dose minimum dose in the experimental data
+#' @param max_dose maximum dose in the experimental data
+#' @param max_low_dos_perc_allowd percentage of variability of minumum dose allowed
+#' @param max_max_dos_perc_allowd percentage of variablity of maximum dose allowed
+#' @param ratio_filter boolean specifying if filtering is applied on bmd, bmdl and bmdu ratio values
+#' @param bmd_bmdl_th threshold for the bmd/bmdl ratio. Default = 20 meaning that genes whose bmd/bmdl > 20 are removed
+#' @param bmdu_bmd_th threshold for the bmdu/bmd ratio. Default = 20 meaning that genes whose bmdu/bmd > 20 are removed
+#' @param bmdu_bmdl_th threshold for the bmdu/bmdl ratio. Default = 40 meaning that genes whose bmu/bmdl > 40 are removed
+#' @param first_only boolean value. If true only the best model (based on AIC criterion) is used to computet BMD/BMDL/BMDU/IC50 values. Otherwise, the models will be screended and the first one with lowest AIC and predicted alues satisfying all the filtering criteria will be selected
+#' @param filter_bounds_bmdl_bmdu boolean specifyinig if models with bmdl=0 or bmdu = max dose should be removed
 #' @return an list containing three items
 #' \item{filt_exp}{filtered matrix of expression values containing only the genes that survive the anova test}
 #' \item{not_var_genes}{genes that do not survive the anova test}
 #' \item{var_genes}{genes passing the anova test}
-
+#' @importFrom parallel makeCluster
+#' @importFrom parallel stopCluster
+#' @importFrom doParallel registerDoParallel
+#' @importFrom foreach foreach
+#' @importFrom foreach %dopar%
+#' @importFrom foreach %do%
+#' @importFrom stats sd
+#' @importFrom drc ED
 #' @export
 
 compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc = 4, dc = 2, sc = 1,
-                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349, constantVar = FALSE, nCores=2){
+                       sel_mod_list = c(19,21,22,23,25,27), rl = 1.349, constantVar = FALSE, nCores=2,
+                       conf_interval = 0.8,
+                       min_dose = 0,
+                       max_dose = 1000,
+                       max_low_dos_perc_allowd = 0,
+                       max_max_dos_perc_allowd=0,
+                       first_only = FALSE,
+                       ratio_filter = FALSE, bmd_bmdl_th = 20,
+                       bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
+                       filter_bounds_bmdl_bmdu = FALSE){
+  
   #,Kd = 10, hillN=2, pow = 2){
   if(tpc > ncol(pheno_data))
     stop("'time point column bigger than the size of the pheno data table!")
@@ -385,139 +415,133 @@ compute_bmd = function(exp_data,pheno_data,time_t=4,interval_type = "delta",tpc 
   #withProgress(message = 'Computing BMD', detail = paste("BMD Time Point: ",time_t, " Gene:  0/",nrow(exp_data),sep=""), value = 1, {
   # BMDValues = c()
   # opt_models_list = list()
-  cl <- makeCluster(nCores)
-  registerDoParallel(cl)
+  # cl <- parallel::makeCluster(nCores)
+  # doParallel::registerDoParallel(cl)
   
   #listComb,.multicombine=TRUE, .init=list(c(), c())
-  res <- foreach(i=1:nrow(exp_data),.combine="c", 
-                 .export = c("fit_models_mselect","fit_models","modelFit","mselect2","ED.lin"),
-                 .errorhandling="stop") %dopar% {
-                   
-                   #for(i in 1:nrow(exp_data)){
-                   
-                   #BMD needs to be evaluated on the whole data, the models differs based on how they compute the mean
-                   exp = exp_data[i,as.character(df_timei[,sc])]
-                   exp = as.numeric(exp)
-                   dose = df_timei[,dc]
-                   dose = as.numeric(as.vector(dose))
-                   
-                   if(constantVar){
-                     sd_level = sd(exp) * rl
-                   }else{
-                     sd_level = sd(exp[which(dose==0)]) * rl
-                   }
-                   
-                   # print("Response level, mean of the controls * 1.349 ---------------->>>>>>>>>>")
-                   # print(sd_level)
-                   
-                   df_gi = data.frame(dose=dose,expr=exp)
-                   df_gi$dose = as.numeric(as.vector(df_gi$dose))
-                   
-                   mod = fit_models_mselect(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
-                   
-                   if(is.null(mod)){
-                     print("no mod fit this gene")
-                   }else{
-                     #opt_models_list[[rownames(exp_data)[i]]] = mod
-                     print("Optimal Model -------->>>>>>")
-                     print(mod$mod_name)
-                     bmd_val = tryCatch({
-                       if(mod$mod_name %in% c("Linear","Quadratic","Cubic","Power2","Power3","Power4","Exponential",
-                                              "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
-                         bmd_val = ED.lin(lmObject = mod$opt_mod,respLev = sd_level, dose=df_gi$dose)
-                       }else{
-                         mmin = min(mod$opt_mod$predres[which(dose==min(dose)),1])
-                         mmax = max(mod$opt_mod$predres[which(dose==max(dose)),1])
-                         if(mmax>mmin){
-                           response_level = mean(exp[which(dose==0)]) + sd_level
-                           decreasing = FALSE
-                         }else{
-                           response_level = mean(exp[which(dose==0)]) - sd_level
-                           decreasing = TRUE
-                         }
-                         bmd_val = ED(object = mod$opt_mod, respLev = response_level, interval = interval_type, level = 0.05, type = "relative")[, c(1,3,4), drop = FALSE]
-                         
-                         ic50 = max(df_gi$expr) - ((max(df_gi$expr) - min(df_gi$expr))/2)
-                         icval = ED(object = mod$opt_mod, respLev = ic50, interval = interval_type, level = 0.05, type = "relative")[, 1, drop = FALSE]
-                         bmd_val = cbind(bmd_val,icval, decreasing)
-                         
-                       }
-                       colnames(bmd_val) = c("BMD","BMDL", "BMDU","IC50/EC50","Decreasing")
-                       bmd_val
-                     }, error = function(e) {
-                       cat("Error\n")
-                       return(NULL)
-                     })
-                     
-                     #if(!is.null(bmd_val))BMDValues = rbind(BMDValues,c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test))
-                     if(!is.null(bmd_val)) {
-                       bmd_values = c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test)
-                       #return(list(bmd_values = bmd_values, mod = mod))
-                       toRet = list()
-                       toRet[[paste(rownames(exp_data)[i],"BMDValues",sep="_")]] = bmd_values
-                       toRet[[paste(rownames(exp_data)[i],"Mod",sep="_")]] = mod
-                       return(toRet)
-                     }
-                   }
-                   
-                   #incProgress(1/nrow(exp_data), detail = paste("BMD Time Point: ",time_t," Gene: ",i ,"/",nrow(exp_data),sep=""))
-                 }
-  #})
-  stopCluster(cl)
+  i = NULL
+  # res = list()
+  # res <- foreach::foreach(i=1:nrow(exp_data),.combine="c",
+  # 												.export = c("fit_models_mselect2","fit_models","mselect2","EDLin","fit_models_lm","compute_bmd_internal","inner.check.model"),
+  # 												.errorhandling="stop") %dopar% {
+  res <- parallel::mclapply(1:nrow(exp_data), function(i) {
+    print(paste("Gene -------------------------------------------------------------------------------> ",i))
+    # for(i in 1:nrow(exp_data)){
+    #for(i in 1:nrow(exp_data)){
+    
+    #BMD needs to be evaluated on the whole data, the models differs based on how they compute the mean
+    exp = exp_data[i,as.character(df_timei[,sc])]
+    exp = as.numeric(exp)
+    dose = df_timei[,dc]
+    dose = as.numeric(as.vector(dose))
+    
+    if(constantVar){
+      sd_level = stats::sd(exp) * rl
+    }else{
+      sd_level = stats::sd(exp[which(dose==0)]) * rl
+    }
+    
+    df_gi = data.frame(dose=dose,expr=exp)
+    df_gi$dose = as.numeric(as.vector(df_gi$dose))
+    
+    mod = fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
+    
+    
+    if(is.null(mod)){
+      print("no mod fit this gene")
+    }else{
+      
+      
+      bmd.internal.res = compute_bmd_internal(mod,
+                                              dataframe = df_gi,
+                                              first_only = first_only,
+                                              sd_level, dose,
+                                              conf_interval,
+                                              min_dose = min_dose,
+                                              max_dose = max_dose,
+                                              interval_type,
+                                              max_low_dos_perc_allowd = max_low_dos_perc_allowd,
+                                              max_max_dos_perc_allowd=max_max_dos_perc_allowd,
+                                              ratio_filter = ratio_filter,
+                                              bmd_bmdl_th = bmd_bmdl_th,
+                                              bmdu_bmd_th = bmdu_bmd_th,
+                                              bmdu_bmdl_th = bmdu_bmdl_th,
+                                              filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu)
+      
+      
+      #if(!is.null(bmd_val))BMDValues = rbind(BMDValues,c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test))
+      if(!is.null(bmd.internal.res)) {
+        bmd_values = c(rownames(exp_data)[i],bmd.internal.res$bmd_val)
+        #return(list(bmd_values = bmd_values, mod = mod))
+        toRet = list()
+        toRet[[paste(rownames(exp_data)[i],"BMDValues",sep="_")]] = bmd_values
+        toRet[[paste(rownames(exp_data)[i],"Mod",sep="_")]] = list("model" = bmd.internal.res$mod, "data_frame" = df_gi)
+        return(toRet)
+        # res[[i]] = toRet
+      }
+    }
+    
+    #incProgress(1/nrow(exp_data), detail = paste("BMD Time Point: ",time_t," Gene: ",i ,"/",nrow(exp_data),sep=""))
+  }, mc.cores = nCores) # end mclapply
   
-  print("xxx")
-  if(length(res)==0){
+  #   } #end foreach
+  
+  
+  # parallel::stopCluster(cl)
+  
+  
+  #if(length(res)==0){ # foreach
+  if(all(lapply(res, is.null))){ #mclapply
+    print("all models are null................................................")
     return(list(BMDValues = NULL,opt_models_list=NULL))
+  }else{
+    #toRem = which(names(res)=="")#foreach
+    toRem = which(lapply(res, is.null) == TRUE) #mclapply
+    if(length(toRem)>0){
+      res = res[-toRem]
+    }
+    
+    BMDValues = c()
+    opt_models_list = list()
+    # idx = seq(from = 1,to = length(res),by = 2)
+    
+    print("formatting parallel results........")
+    for(i in 1:length(res)){ #mclapply
+      #for(ii in idx){ foreach
+      #mclapply
+      BMDValues = rbind(BMDValues, res[[i]][[1]])
+      opt_models_list[[res[[i]][[1]][1]]] = res[[1]][[2]]
+      #foreach
+      # BMDValues = rbind(BMDValues, res[[ii]])
+      # opt_models_list[[res[[ii]][1]]] = res[[ii+1]]
+    }
+    print("end formatting parallel results........")
+    if(length(BMDValues)==0){
+      return(list(BMDValues = NULL,opt_models_list=NULL))
+    }else{
+      colnames(BMDValues) = c("Gene","BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOFPVal")#,"ANOVAPVal")
+      BMDValues = as.data.frame(BMDValues)
+      BMDValues$BMD = round(as.numeric(as.vector(BMDValues$BMD)),4)
+      BMDValues$BMDL = round(as.numeric(as.vector(BMDValues$BMDL)),4)
+      BMDValues$LOFPVal = round(as.numeric(as.vector(BMDValues$LOFPVal)),4)
+      
+      bmd = as.numeric(as.vector(BMDValues[,"BMD"]))
+      bmdl = as.numeric(as.vector(BMDValues[,"BMDL"]))
+      bmdu = as.numeric(as.vector(BMDValues[,"BMDU"]))
+      ic50 = as.numeric(as.vector(BMDValues[,"IC50/EC50"]))
+      
+      
+      bmd_na = union(which(is.na(bmd)), union(which(is.na(bmdl)), union( which(is.na(bmdu)), which(is.na(ic50)))	))
+      
+      if(length(bmd_na)>0){
+        BMDValues = BMDValues[-bmd_na,]
+        opt_models_list = opt_models_list[-bmd_na]
+      }
+      
+      return(list(BMDValues = BMDValues,opt_models_list=opt_models_list))
+    }
   }
   
-  toRem = which(names(res)=="")
-  if(length(toRem)>0){
-    res = res[-toRem]
-  }
-  
-  BMDValues = c()
-  opt_models_list = list()
-  idx = seq(from = 1,to = length(res),by = 2)
-  # indici = 1
-  # 
-  # for(ii in idx){
-  #   BMDValues = rbind(BMDValues, res[[ii]])
-  #   opt_models_list[[indici]] = res[[ii+1]]
-  #   indici = indici + 1
-  # }
-  
-  values_idx = grep(x = names(res),pattern = "BMDValues")
-  mod_idx = grep(x = names(res),pattern = "Mod")
-  
-  genigsub = gsub(pattern = "_BMDValues",replacement = "",x = names(res))
-  
-  for(ii in idx){
-    print(ii)
-    BMDValues = rbind(BMDValues, res[[ii]])
-    opt_models_list[[res[[ii]][1]]] = res[[ii+1]]
-  }
-  
-  # close(pb)
-  #BMDValues = res[[1]]
-  #opt_models_list = res[[2]]
-  BMDValues = cbind(BMDValues,rownames(exp_data)[BMDValues[,1]])
-  
-  if(length(BMDValues)==0){
-    return(list(BMDValues = NULL,opt_models_list=NULL))
-  }
-  
-  
-  colnames(BMDValues) = c("Gene","BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOFPVal","ANOVAPVal")
-  BMDValues = as.data.frame(BMDValues)
-  BMDValues$BMD = round(as.numeric(as.vector(BMDValues$BMD)),4)
-  BMDValues$BMDL = round(as.numeric(as.vector(BMDValues$BMDL)),4)
-  BMDValues$LOFPVal = round(as.numeric(as.vector(BMDValues$LOFPVal)),4)
-  BMDValues$ANOVAPVal = round(as.numeric(as.vector(BMDValues$ANOVAPVal)),4)
-  BMDValues = BMDValues[, 1:8]
-  
-  #names(opt_models_list) = BMDValues[,1]
-  
-  return(list(BMDValues = BMDValues,opt_models_list=opt_models_list))
 }
 
 
