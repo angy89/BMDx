@@ -38,6 +38,7 @@ library(UpSetR)
 library(XLConnect)
 library(doParallel)
 library(trend)
+library(miceadds)
 
 set.seed(12)
 load(file ="data/updated_kegg_hierarhcy.RData")
@@ -47,6 +48,13 @@ load("data/rat_reactome_hierarchy.RData")
 load("data/rat_kegg_hyerarchy.RData")
 reduced_kegg_hierarchy = kegg_hierarchy
 
+source("functions/path_grid_plot.R")
+source("functions/plot_grid.R")
+source("functions/plot_grid_genes.R")
+source("functions/enrich_functions.R")
+source("functions/goHier.R")
+source("functions/kegg_mats.R")
+
 source("functions/bmd_utilities.R")
 source("functions/mselect.R")
 source("functions/ED.lin.R")
@@ -55,12 +63,6 @@ source("functions/trend_test.R")
 source("functions/compute_bmd_internal.R")
 source("functions/fit_models_mselect2.R")
 source("functions/fit_models_lm.R")
-
-source("functions/path_grid_plot.R")
-source("functions/plot_grid.R")
-source("functions/enrich_functions.R")
-source("functions/goHier.R")
-source("functions/kegg_mats.R")
 
 # this instruction increase the maximum size of the file that can be uploaded in a shiny application
 options(shiny.maxRequestSize=300*1024^2) 
@@ -611,6 +613,10 @@ shinyServer(function(input, output, session) {
       need(!is.null(gVars$EXP_FIL), "No Phenotype File Provided!")
     )
     
+    shinyjs::html(id="loadingText", "COMPUTING BMD")
+    shinyjs::show(id="loading-content")
+    
+    
     print("BMD")
     
     withProgress(message = 'Running BMD', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
@@ -673,6 +679,13 @@ shinyServer(function(input, output, session) {
     gVars$MQ_BMD_filtered = NULL#MQ_BMDListFiltered
     gVars$MQ_BMDListFilteredValues = NULL #MQ_BMDListFilteredValues
     gVars$MQ_BMD_filtered2 = NULL #gVars$MQ_BMD_filtered
+    
+    
+    on.exit({
+      print("inside on exit")
+      shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
+    })
+    
     
     shinyBS::toggleModal(session, "computeBMD", toggle="close")
     shinyBS::updateButton(session, "bmd_button", style="success", icon=icon("check-circle"))
@@ -842,9 +855,19 @@ shinyServer(function(input, output, session) {
   
 
   observeEvent(input$enrichment_analysis, {
+    
+    print("XXXX")
+    
     shiny::validate(
-      need(!is.null(gVars$MQ_BMD_filtered), "No BMD performed!")
+      need(!is.null(gVars$MQ_BMD), "No BMD performed!")
     )
+    
+    if(is.null(gVars$MQ_BMD_filtered)){
+      bmd_data = gVars$MQ_BMD
+    }else{
+      bmd_data = gVars$MQ_BMD_filtered
+    }
+    
     shinyjs::html(id="loadingText", "COMPUTING ENRICHMENT")
     shinyjs::show(id="loading-content")
     
@@ -873,7 +896,7 @@ shinyServer(function(input, output, session) {
         print(timep)
         
         for(i in timep){
-          BMDFilMat = gVars$MQ_BMD_filtered[[j]][[as.character(i)]]$BMDValues_filtered
+          BMDFilMat = bmd_data[[j]][[as.character(i)]][[1]] # matrix with computed bmd values
           
           # tths = quantile(BMDFilMat[,"BMD"],probs = thrs/100)
           # iidx = which(BMDFilMat[,"BMD"]>=tths[1] & BMDFilMat[,"BMD"]<=tths[2])
@@ -891,252 +914,243 @@ shinyServer(function(input, output, session) {
   
       organism = input$organism
       annType = input$idtype
-
+      
         GList = convert_genes(organism = input$organism, GList=GList, annType = input$idtype)
-        Mp = cbind(names(GList),1:length(GList),grouping_experiment,grouping_TP)  #DF[[length(DF)]]
-        #Mp = cbind(names(GList),grouping)  #DF[[length(DF)]]
-        
+        Mp = cbind(names(GList),1:length(GList),grouping_experiment,grouping_TP)
         colnames(Mp) = c("Chemical","Grouping", "Experiment","Timepoint")
         pheno = cbind(Mp[,2],Mp[,1])
-        
-        #save(GList, pheno, file = "funmapponeInput.RData")
-        
+
         gVars$GList = GList
         gVars$pheno = pheno
         gVars$exp_ann = gVars$pheno
-
-        DTa = matrix("",ncol = length(GList),nrow = max(unlist(lapply(GList, FUN = nrow))))
-        for(i in 1:(length(GList))){
-          gli = as.character(GList[[i]][,1])
-          if(length(gli)>0) DTa[1:nrow(GList[[i]]),i]= gli
+      
+      DTa = matrix("",ncol = length(GList),nrow = max(unlist(lapply(GList, FUN = nrow))))
+      for(i in 1:(length(GList))){
+        gli = as.character(GList[[i]][,1])
+        if(length(gli)>0) DTa[1:nrow(GList[[i]]),i]= gli
+      }
+      
+      colnames(DTa) = names(GList)
+      
+      if(is.null(DTa)){
+        gVars$DATA = NULL
+      }else{
+        gVars$DATA = DTa
+      }
+      
+      gVars$toPlot <- NULL # refresh plot map in the Plot Maps tab
+      gVars$clust_mat <- NULL
+      gVars$KEGG_MAT <- NULL
+      
+      DAT = gVars$DATA   
+      if(input$organism == "Mouse"){          
+        org = "mmu"
+        reactome_hierarchy = mm_reactome_hierarchy
+        reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
+        org_enrich = "mmusculus"
+        reactome_hierarchy[,1] = mouse_map[reactome_hierarchy[,1],2]
+        reactome_hierarchy[,2] = mouse_map[unlist(reactome_hierarchy[,2]),2]
+        reactome_hierarchy[,3] = mouse_map[unlist(reactome_hierarchy[,3]),2]
+      }
+      if(input$organism == "Human"){
+        org = "hsa"
+        reactome_hierarchy = hm_reactome_hierarchy
+        reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
+        reactome_hierarchy[,1] = human_map[reactome_hierarchy[,1],2]
+        reactome_hierarchy[,2] = human_map[unlist(reactome_hierarchy[,2]),2]
+        reactome_hierarchy[,3] = human_map[unlist(reactome_hierarchy[,3]),2]
+        org_enrich = "hsapiens"
+      }
+      if(input$organism == "Rat"){
+        org = "Rat"
+        reactome_hierarchy = rat_reactome_hierarchy
+        reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
+        reactome_hierarchy[,1] = rat_map[reactome_hierarchy[,1],2]
+        reactome_hierarchy[,2] = rat_map[unlist(reactome_hierarchy[,2]),2]
+        reactome_hierarchy[,3] = rat_map[unlist(reactome_hierarchy[,3]),2]
+        org_enrich = "rnorvegicus"
+        
+      }
+      
+      ####### remove reactome duplicates
+      reactome_hierarchy=unique(reactome_hierarchy)
+      
+      # Compute enrichment
+      annType = input$EnrichType
+      GOType = input$GOType
+      
+      if(annType=="KEGG"){
+        gVars$hierarchy = kegg_hierarchy
+        type_enrich = "KEGG"
+      }
+      if(annType=="REACTOME"){
+        type_enrich = "REAC"
+        gVars$hierarchy = reactome_hierarchy
+      }
+      if(annType=="GO"){
+        if(GOType == "BP"){
+          #create geograph object
+          makeGOGraph(ont = "bp") -> geograph
+          #convert graphNEL into igraph
+          igraph.from.graphNEL(geograph) -> igraphgeo
+          #make igraph object undirected
+          igraphgeo = as.undirected(igraphgeo)
+          #set root as BP root term
+          root = "GO:0008150"
+          type_enrich = "GO:BP"
         }
-        
-        colnames(DTa) = names(GList)
-        
-        if(is.null(DTa)){
-          gVars$DATA = NULL
-        }else{
-          gVars$DATA = DTa
+        if(GOType == "CC"){
+          #EnrichDatList = all_GO_CC
+          makeGOGraph(ont = "cc") -> geograph
+          igraph.from.graphNEL(geograph) -> igraphgeo
+          igraphgeo = as.undirected(igraphgeo)
+          root="GO:0005575"
+          type_enrich = "GO:CC"
         }
-
-        gVars$toPlot <- NULL # refresh plot map in the Plot Maps tab
-        gVars$clust_mat <- NULL
-        gVars$KEGG_MAT <- NULL
-        
-        DAT = gVars$DATA   
-        if(input$organism == "Mouse"){          
-          org = "mmu"
-          reactome_hierarchy = mm_reactome_hierarchy
-          reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
-          org_enrich = "mmusculus"
-          reactome_hierarchy[,1] = mouse_map[reactome_hierarchy[,1],2]
-          reactome_hierarchy[,2] = mouse_map[unlist(reactome_hierarchy[,2]),2]
-          reactome_hierarchy[,3] = mouse_map[unlist(reactome_hierarchy[,3]),2]
+        if(GOType == "MF"){
+          #EnrichDatList = all_GO_MF
+          makeGOGraph(ont = "mf") -> geograph
+          igraph.from.graphNEL(geograph) -> igraphgeo
+          igraphgeo = as.undirected(igraphgeo)
+          root="GO:0003674"
+          type_enrich = "GO:MF"
         }
-        if(input$organism == "Human"){
-          org = "hsa"
-          reactome_hierarchy = hm_reactome_hierarchy
-          reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
-          reactome_hierarchy[,1] = human_map[reactome_hierarchy[,1],2]
-          reactome_hierarchy[,2] = human_map[unlist(reactome_hierarchy[,2]),2]
-          reactome_hierarchy[,3] = human_map[unlist(reactome_hierarchy[,3]),2]
-          org_enrich = "hsapiens"
+      }
+      
+      GL = gVars$GList
+      pval = as.numeric(input$pvalueTh)
+      adjust_method = input$pcorrection
+      org = org_enrich
+      type = type_enrich
+      print("Before enrichment")
+      
+      if(input$pcorrection == "none"){ 
+        print("Nominal PValue")
+        #as.numeric(input$pvalueTh)
+        EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,1,"bonferroni", sig = FALSE, mis = as.numeric(input$min_intersection), only_annotated=input$only_annotated)
+        for(i in 1:length(EnrichDatList)){
+          ERi = EnrichDatList[[i]]
+          ERi$pValueAdj = ERi$pValueAdj / length(ERi$pValueAdj)
+          ERi$pValue = ERi$pValue / length(ERi$pValue)
+          EnrichDatList[[i]] = ERi
         }
-        if(input$organism == "Rat"){
-          org = "Rat"
-          reactome_hierarchy = rat_reactome_hierarchy
-          reactome_hierarchy$ID = unlist(reactome_hierarchy$Pathway)
-          reactome_hierarchy[,1] = rat_map[reactome_hierarchy[,1],2]
-          reactome_hierarchy[,2] = rat_map[unlist(reactome_hierarchy[,2]),2]
-          reactome_hierarchy[,3] = rat_map[unlist(reactome_hierarchy[,3]),2]
-          org_enrich = "rnorvegicus"
-          
-        }
+      }else{
+        EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),input$pcorrection, sig = TRUE, mis = as.numeric(input$min_intersection),only_annotated=input$only_annotated)
+      }
+      
+      gVars$EnrichDatList = EnrichDatList
+      
+      print("After enrichment")
+      
+      if(input$EnrichType == "GO"){
+        #find the list of term into  the enriched list
+        #res2 = filterGO(EnrichDatList,go_type = GOType)
         
-        ####### remove reactome duplicates
-        reactome_hierarchy=unique(reactome_hierarchy)
+        res2 = filterGO(EnrichDatList,go_type = input$GOType)
+        EnrichDatList = res2$EnrichDatList
+        go_terms = res2$goTerm
+        print("compute GO hierarchy")
         
-        # Compute enrichment
-        annType = input$EnrichType
-        GOType = input$GOType
+        #Compute all the shortest path between the root to the go_terms
+        asp = all_shortest_paths(graph = igraphgeo,from = root, to = go_terms)
         
-        if(annType=="KEGG"){
-          gVars$hierarchy = kegg_hierarchy
-          type_enrich = "KEGG"
-        }
-        if(annType=="REACTOME"){
-          type_enrich = "REAC"
-          gVars$hierarchy = reactome_hierarchy
-        }
-        if(annType=="GO"){
-          if(GOType == "BP"){
-            #create geograph object
-            makeGOGraph(ont = "bp") -> geograph
-            #convert graphNEL into igraph
-            igraph.from.graphNEL(geograph) -> igraphgeo
-            #make igraph object undirected
-            igraphgeo = as.undirected(igraphgeo)
-            #set root as BP root term
-            root = "GO:0008150"
-            type_enrich = "GO:BP"
-          }
-          if(GOType == "CC"){
-            #EnrichDatList = all_GO_CC
-            makeGOGraph(ont = "cc") -> geograph
-            igraph.from.graphNEL(geograph) -> igraphgeo
-            igraphgeo = as.undirected(igraphgeo)
-            root="GO:0005575"
-            type_enrich = "GO:CC"
-          }
-          if(GOType == "MF"){
-            #EnrichDatList = all_GO_MF
-            makeGOGraph(ont = "mf") -> geograph
-            igraph.from.graphNEL(geograph) -> igraphgeo
-            igraphgeo = as.undirected(igraphgeo)
-            root="GO:0003674"
-            type_enrich = "GO:MF"
-          }
-        }
+        #reduce the shortest path to length 3 to build a 3 level hierarchy
+        go_hierarchy = matrix("",nrow = length(asp$res),ncol = 3)
         
-        GL = gVars$GList
-        pval = as.numeric(input$pvalueTh)
-        adjust_method = input$pcorrection
-        org = org_enrich
-        type = type_enrich
-        print("Before enrichment")
-
-        if(input$pcorrection == "none"){ 
-          print("Nominal PValue")
-          #as.numeric(input$pvalueTh)
-          EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,1,"bonferroni", sig = FALSE, mis = as.numeric(input$min_intersection), only_annotated=input$only_annotated)
-          for(i in 1:length(EnrichDatList)){
-            ERi = EnrichDatList[[i]]
-            ERi$pValueAdj = ERi$pValueAdj / length(ERi$pValueAdj)
-            ERi$pValue = ERi$pValue / length(ERi$pValue)
-            EnrichDatList[[i]] = ERi
-          }
-        }else{
-          EnrichDatList = lapply(gVars$GList,enrich,type_enrich,org_enrich,as.numeric(input$pvalueTh),input$pcorrection, sig = TRUE, mis = as.numeric(input$min_intersection),only_annotated=input$only_annotated)
-        }
-        
-        gVars$EnrichDatList = EnrichDatList
-        
-        print("After enrichment")
-        
-        if(input$EnrichType == "GO"){
-          #find the list of term into  the enriched list
-          #res2 = filterGO(EnrichDatList,go_type = GOType)
-          
-          res2 = filterGO(EnrichDatList,go_type = input$GOType)
-          EnrichDatList = res2$EnrichDatList
-          go_terms = res2$goTerm
-          print("compute GO hierarchy")
-          
-          #Compute all the shortest path between the root to the go_terms
-          asp = all_shortest_paths(graph = igraphgeo,from = root, to = go_terms)
-          
-          #reduce the shortest path to length 3 to build a 3 level hierarchy
-          go_hierarchy = matrix("",nrow = length(asp$res),ncol = 3)
-          
-          for(i in 1:length(asp$res)){
-            nn = names(asp$res[[i]])
-            nn = nn[2:length(nn)]
-            if(length(nn)<3){
-              nn2 = rep(nn[length(nn)],3)
-              nn2[1:length(nn)] = nn
-            }else{
-              nn2 = c(nn[1:2],nn[length(nn)])
-            }
-            go_hierarchy[i,] =nn2   
-          }
-          
-          go_hierarchy = unique(go_hierarchy)
-          colnames(go_hierarchy) = c("level1","level2","level3")
-          go_hierarchy = as.data.frame(go_hierarchy)
-          go_hierarchy$ID = go_hierarchy[,3]
-          
-          idx = which(is.na(go_hierarchy[,1]))
-          if(length(idx)>0){
-            go_hierarchy = go_hierarchy[-idx,]
-          }
-          go_hierarchy[,1] = Term(GOTERM[as.character(go_hierarchy[,1])])
-          go_hierarchy[,2] = Term(GOTERM[as.character(go_hierarchy[,2])])
-          go_hierarchy[,3] = Term(GOTERM[as.character(go_hierarchy[,3])])
-          
-          # colnames(hier_names) = c("Level1","Level2","Pathway")
-          gVars$hierarchy = go_hierarchy
-          print(gVars$hierarchy)
-          
-        }
-        
-        print(head(gVars$hierarchy))
-        
-        NCol = ncol(gVars$GList[[1]])
-        print("NCol -------- >>>>> ")
-        print(NCol)
-        
-        #if(input$fileType %in% "GenesOnly"){
-        if(input$MapValueType == "PVAL"){
-          print("only genes")
-          M = kegg_mat_p(EnrichDatList,hierarchy = gVars$hierarchy)
-        }else{
-          
-          if(NCol==1){
-            shinyjs::info("No Modification provided! Enrichment will be performed by using only pvalues")
-            M = kegg_mat_p(EnrichDatList,hierarchy = gVars$hierarchy)
-            
+        for(i in 1:length(asp$res)){
+          nn = names(asp$res[[i]])
+          nn = nn[2:length(nn)]
+          if(length(nn)<3){
+            nn2 = rep(nn[length(nn)],3)
+            nn2[1:length(nn)] = nn
           }else{
-            M1 = kegg_mat_p(EnrichDatList,hierarchy = gVars$hierarchy)
-            M2 = kegg_mat_fc(EnrichDatList = EnrichDatList,hierarchy = gVars$hierarchy,GList = gVars$GList, summ_fun=get(input$aggregation))
-            
-            print("LOGGGGG")
-            
-            # if(input$MapValueType == "PVAL"){
-            #   M = M1
-            # }
-            if(input$MapValueType == "FC"){
-              M = M2
-            }
-            if(input$MapValueType == "FCPV"){
-              M = M2 * -log(M1)
-            }
-            rownames(M) = rownames(M1)
-            colnames(M) = colnames(M1)
+            nn2 = c(nn[1:2],nn[length(nn)])
           }
+          go_hierarchy[i,] =nn2   
+        }
+        
+        go_hierarchy = unique(go_hierarchy)
+        colnames(go_hierarchy) = c("level1","level2","level3")
+        go_hierarchy = as.data.frame(go_hierarchy)
+        go_hierarchy$ID = go_hierarchy[,3]
+        
+        idx = which(is.na(go_hierarchy[,1]))
+        if(length(idx)>0){
+          go_hierarchy = go_hierarchy[-idx,]
+        }
+        go_hierarchy[,1] = Term(GOTERM[as.character(go_hierarchy[,1])])
+        go_hierarchy[,2] = Term(GOTERM[as.character(go_hierarchy[,2])])
+        go_hierarchy[,3] = Term(GOTERM[as.character(go_hierarchy[,3])])
+        
+        # colnames(hier_names) = c("Level1","Level2","Pathway")
+        gVars$hierarchy = go_hierarchy
+        print(gVars$hierarchy)
+        
+      }
+      
+      print(head(gVars$hierarchy))
+      
+      NCol = ncol(gVars$GList[[1]])
+      print("NCol -------- >>>>> ")
+      print(NCol)
+      
+      #if(input$fileType %in% "GenesOnly"){
+      if(input$MapValueType == "PVAL"){
+        print("only genes")
+        M = kegg_mat_p(EnrichDatList,hierarchy = gVars$hierarchy)
+      }else{
+        
+        if(NCol==1){
+          shinyjs::info("No Modification provided! Enrichment will be performed by using only pvalues")
+          M = kegg_mat_p(EnrichDatList,hierarchy = gVars$hierarchy)
           
+        }else{
+          M1 = kegg_mat_p(EnrichDatList,hierarchy = gVars$hierarchy)
+          M2 = kegg_mat_fc(EnrichDatList = EnrichDatList,hierarchy = gVars$hierarchy,GList = gVars$GList, summ_fun=get(input$aggregation))
+          
+          print("LOGGGGG")
+          
+          # if(input$MapValueType == "PVAL"){
+          #   M = M1
+          # }
+          if(input$MapValueType == "FC"){
+            M = M2
+          }
+          if(input$MapValueType == "FCPV"){
+            M = M2 * -log(M1)
+          }
+          rownames(M) = rownames(M1)
+          colnames(M) = colnames(M1)
         }
         
-        gVars$KEGG_MAT = M
-        
-        hierarchy <- collapse_paths(kegg_hierarchy =gVars$hierarchy,kegg_mat_cell = gVars$KEGG_MAT, collapse_level = 3)
-        mat <- hierarchy[[1]]
-        hier <- hierarchy[[2]]
-        
-        print(hier)
-        
-        gVars$lev1_h = as.list(c("All",unique(as.character(hier[,1]))))
-        
-        gVars$lev2_h = list("All" = "All")
-        for(i in unique(hier[,1])){
-          gVars$lev2_h[[i]] = as.character(unique(hier[which(hier[,1] %in% i),2]))
-        }
-        
-        gVars$lev3_h = list("All" = "All")
-        for(i in unique(hier[,2])){
-          gVars$lev3_h[[i]] = as.character(unique(hier[which(hier[,2] %in% i),3]))
-        }
-        
-        # code added here
-        #Compute genes matrix
-        Mgenes <- kegg_mat_genes(EnrichDatList=EnrichDatList, hierarchy=gVars$hierarchy)
-        print("dim(Mgenes)")
-        print(dim(Mgenes))
-        print("str(Mgenes)")
-        print(str(Mgenes))
-        
-        gVars$KEGG_MAT_GENES <- Mgenes
-        
-        
+      }
+      
+      gVars$KEGG_MAT = M
+      
+      hierarchy <- collapse_paths(kegg_hierarchy =gVars$hierarchy,kegg_mat_cell = gVars$KEGG_MAT, collapse_level = 3)
+      mat <- hierarchy[[1]]
+      hier <- hierarchy[[2]]
+      
+      print(hier)
+      
+      gVars$lev1_h = as.list(c("All",unique(as.character(hier[,1]))))
+      
+      gVars$lev2_h = list("All" = "All")
+      for(i in unique(hier[,1])){
+        gVars$lev2_h[[i]] = as.character(unique(hier[which(hier[,1] %in% i),2]))
+      }
+      
+      gVars$lev3_h = list("All" = "All")
+      for(i in unique(hier[,2])){
+        gVars$lev3_h[[i]] = as.character(unique(hier[which(hier[,2] %in% i),3]))
+      }
+      
+      # code added here
+      #Compute genes matrix
+      Mgenes <- kegg_mat_genes(EnrichDatList=EnrichDatList, hierarchy=gVars$hierarchy)
+      
+      gVars$KEGG_MAT_GENES <- Mgenes
+      
         on.exit({
           print("inside on exit")
           shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
@@ -1264,7 +1278,7 @@ shinyServer(function(input, output, session) {
       paste("bmd_table.xlsx", sep = "")
     },
     content = function(file) {
-      if(length(gVars$MQ_BMD_filtered)==0){ 
+      if(length(gVars$MQ_BMD)==0){ 
         print("No bmd table to save!")
         return(NULL)
       }
@@ -1277,25 +1291,31 @@ shinyServer(function(input, output, session) {
       
       print("I'm saving bmd tables")
       
-      
+      if(is.null(gVars$MQ_BMD_filtered)){
+        BMDDataList = gVars$MQ_BMD
+        
+      }else{
+        BMDDataList = gVars$MQ_BMD_filtered
+        
+      }
       
       firstCall = TRUE
 
-      for(exp in names(gVars$MQ_BMD_filtered)){
+      for(exp in names(BMDDataList)){
         print(exp)
-        times = names(gVars$MQ_BMD_filtered[[exp]])
+        times = names(BMDDataList[[exp]])
         for(tp in times){
           print(tp)
           if(firstCall){
-            if(nrow(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered)>0){
-              write.xlsx(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered, file, sheetName = paste(exp,tp,sep = "_"), append = FALSE)
+            if(nrow(BMDDataList[[exp]][[tp]][[1]])>0){
+              write.xlsx(BMDDataList[[exp]][[tp]][[1]], file, sheetName = paste(exp,tp,sep = "_"), append = FALSE)
               xlcFreeMemory()
               firstCall = FALSE
               print("first")
             }
           }else{
-            if(nrow(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered)>0){
-              write.xlsx(gVars$MQ_BMD_filtered[[exp]][[tp]]$BMDValues_filtered, file, sheetName = paste(exp,tp,sep = "_"), append = TRUE)
+            if(nrow(BMDDataList[[exp]][[tp]][[1]])>0){
+              write.xlsx(BMDDataList[[exp]][[tp]][[1]], file, sheetName = paste(exp,tp,sep = "_"), append = TRUE)
               xlcFreeMemory()
               print("appending")
             }
@@ -1425,8 +1445,14 @@ shinyServer(function(input, output, session) {
       exper = strsplit(x = elemn, split = "_")[[1]][1]
       timep = strsplit(x = elemn, split = "_")[[1]][2]
       
-      BMDFilMat = gVars$MQ_BMD_filtered[[exper]][[as.character(timep)]]$BMDValues_filtered #filtered BMD genes
-      
+      if(is.null(gVars$MQ_BMD_filtered)){
+        BMDFilMat = gVars$MQ_BMD[[exper]][[as.character(timep)]]$BMDValues #filtered BMD genes
+        
+      }else{
+        BMDFilMat = gVars$MQ_BMD_filtered[[exper]][[as.character(timep)]]$BMDValues_filtered #filtered BMD genes
+        
+      }
+
       if(!is.null(BMDFilMat) & nrow(ERi)>0){
         
         for(npat in 1:nrow(ER[[i]])){
@@ -1493,7 +1519,12 @@ shinyServer(function(input, output, session) {
       exper = strsplit(x = elemn, split = "_")[[1]][1]
       timep = strsplit(x = elemn, split = "_")[[1]][2]
       
-      BMDFilMat = gVars$MQ_BMD_filtered[[exper]][[as.character(timep)]]$BMDValues_filtered #filtered BMD genes
+      if(is.null(gVars$MQ_BMD_filtered)){
+        BMDFilMat = gVars$MQ_BMD[[exper]][[as.character(timep)]]$BMDValues #filtered BMD genes
+      }else{
+        BMDFilMat = gVars$MQ_BMD_filtered[[exper]][[as.character(timep)]]$BMDValues_filtered #filtered BMD genes
+      }
+      
       if(!is.null(BMDFilMat) & nrow(ERi)>0){
    
           for(npat in 1:nrow(ER[[i]])){
@@ -1560,8 +1591,14 @@ shinyServer(function(input, output, session) {
     
     exp_tp = unlist(strsplit(input$time_point_id_visualPat,"_"))
     
-    BMDFilMat = gVars$MQ_BMD_filtered[[exp_tp[1]]][[exp_tp[2]]]$BMDValues_filtered
-    
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMDFilMat = gVars$MQ_BMD[[exp_tp[1]]][[exp_tp[2]]]$BMDValues
+      
+    }else{
+      BMDFilMat = gVars$MQ_BMD_filtered[[exp_tp[1]]][[exp_tp[2]]]$BMDValues_filtered
+      
+    }
+
     
     #BMDFilMat = gVars$MQ_BMD_filtered[[input$time_point_id_visualPat]]$BMDValues_filtered
     gi = unlist(strsplit(x = ER[input$PAT_table_rows_selected,2],split = ","))
@@ -2999,9 +3036,9 @@ shinyServer(function(input, output, session) {
     if(!is.null(gVars$nSamples)){
       #
       mwidth = (gVars$length_path * 15) + (gVars$nSamples * 20)
-      print(paste("MY sample IS ---->", gVars$nSamples))
-      print(paste("MY path len IS ---->", gVars$length_path))
-      print(paste("MY WIDTH IS ---->", mwidth))
+      # print(paste("MY sample IS ---->", gVars$nSamples))
+      # print(paste("MY path len IS ---->", gVars$length_path))
+      # print(paste("MY WIDTH IS ---->", mwidth))
       
       mwidth = max(600, mwidth)
       
@@ -3025,15 +3062,16 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$do, {
-    
+    print("ciao")
     shinyjs::html(id="loadingText", "Rendering Map")
     shinyjs::show(id="loading-content")
+    
     on.exit({
       print("inside on exit")
       shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
     })
-    # print("input lev1 is the following ---->")
-    # print(input$lev1)
+    
+
     need(is.null(input$lev1), "Please select a level 1 object")
     need(is.null(input$lev2), "Please select a level 2 object")
     need(is.null(input$lev3), "Please select a level 3 object")
