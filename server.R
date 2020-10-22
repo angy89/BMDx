@@ -518,7 +518,6 @@ shinyServer(function(input, output, session) {
         for(tp in  timep){
           print(tp)
           
-          print("ciao")
           pvalues_genes = compute_anova(exp_data = gVars$inputGx[[i]], #[runif(n = 500,min = 1,max = nrow(gVars$inputGx)),], # TOGLIERE LA SELEZIONE RANDOM DEI GENI
                                         pheno_data=gVars$phFactor[[i]], 
                                         time_t=tp,
@@ -1635,7 +1634,6 @@ shinyServer(function(input, output, session) {
     #   print("Null BMD")
     #   return(NULL)
     # }
-    print("ciao")
     if((input$time_point_id_visualPat %in% names(gVars$EnrichDatList))==FALSE){
       print("No enrichment for this TP")
       return(NULL)
@@ -2750,7 +2748,6 @@ shinyServer(function(input, output, session) {
     shiny::validate(
       need(!is.null(gVars$phTable), "No Pheno Data file!")
     )
-    print("Ciao")
     if(length(gVars$phTable)>1){
       selectInput("time_point_id", "Time Points", choices=c("All"))
       
@@ -2764,7 +2761,6 @@ shinyServer(function(input, output, session) {
     shiny::validate(
       need(!is.null(gVars$phTable), "No Pheno Data file!")
     )
-    print("Ciao")
     if(length(gVars$phTable)>1){
       selectInput("time_point_id", "Time Points", choices=c("All"))
       
@@ -3062,7 +3058,6 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$do, {
-    print("ciao")
     shinyjs::html(id="loadingText", "Rendering Map")
     shinyjs::show(id="loading-content")
     

@@ -332,14 +332,14 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
   # list_of_bmd_resume_table_filtered = list()
   
   for(j in 1:length(pheno_data_list)){
-    print(paste("Experiment -------------------------------------------------------------------------------> ",j))
+    # print(paste("Experiment -------------------------------------------------------------------------------> ",j))
     timep = as.numeric(names(filtered_expression_data_list[[j]]))
     
     maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     minDose = min(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     
     for(i in timep){
-      print(paste("Timep -------------------------------------------------------------------------------> ",i))
+      # print(paste("Timep -------------------------------------------------------------------------------> ",i))
       
       # print("before compute_bmd")
       
@@ -439,7 +439,7 @@ filter_bmd_multiple_experiment = function(list_of_bmd_fitted_models_and_resume_t
   list_of_bmd_resume_table_filtered = list()
   
   for(j in 1:length(pheno_data_list)){
-    print(paste("Experiment -------------------------------------------------------------------------------> ",j))
+    # print(paste("Experiment -------------------------------------------------------------------------------> ",j))
     timep = as.numeric(names(filtered_expression_data_list[[j]]))
     
     maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
@@ -488,12 +488,10 @@ listComb = function(x, ...) {
   # create a list with all the first results of the foreach iteration
   y1 = lapply(list(...), function(y) y[[1]])
   
-  print("in comb")
   print(y1)
   
   # create a matrix from this list
   x1 = matrix(unlist(y1),byrow = T,ncol = length(y1[[1]]))
-  #print(x1)
   
   if(length(y1)>1){
     y2 = lapply(list(...), function(y) y[[2]])
@@ -666,7 +664,7 @@ compute_bmd = function(exp_data,pheno_data,
   
   #if(length(res)==0){ # foreach
   if(all(lapply(res, is.null))){ #mclapply
-    print("all models are null................................................")
+    # print("all models are null................................................")
     return(list(BMDValues = NULL,opt_models_list=NULL))
   }else{
     #toRem = which(names(res)=="")#foreach
@@ -679,7 +677,7 @@ compute_bmd = function(exp_data,pheno_data,
     opt_models_list = list()
     # idx = seq(from = 1,to = length(res),by = 2)
     
-    print("formatting parallel results........")
+    # print("formatting parallel results........")
     for(i in 1:length(res)){ #mclapply
       #for(ii in idx){ foreach
       #mclapply
@@ -689,7 +687,7 @@ compute_bmd = function(exp_data,pheno_data,
       # BMDValues = rbind(BMDValues, res[[ii]])
       # opt_models_list[[res[[ii]][1]]] = res[[ii+1]]
     }
-    print("end formatting parallel results........")
+    # print("end formatting parallel results........")
     if(length(BMDValues)==0){
       return(list(BMDValues = NULL,opt_models_list=NULL))
     }else{
@@ -812,8 +810,8 @@ fit_models_mselect = function(formula=expr~dose, dataframe=df_gi,sel_mod_list=se
         }else{
           if(mod_name %in% c("Power2","Power3","Power4")){
             sp = as.numeric(gsub(pattern = "Power",replacement = "",x = mod_name))
-            print("Power mod -------------->>>>>>>>>>>>>>>>>>>>")
-            print(sp)
+            # print("Power mod -------------->>>>>>>>>>>>>>>>>>>>")
+            # print(sp)
             mod2 = lm(expr ~ I(dose^sp), data = dataframe)
             #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
             
@@ -827,8 +825,8 @@ fit_models_mselect = function(formula=expr~dose, dataframe=df_gi,sel_mod_list=se
                 hlN = gsub(pattern = "Hill",replacement = "",x = mod_name)
                 if(hlN == "05") hlN = 0.05
                 hlN = as.numeric(hlN)
-                print("Hill mod -------------->>>>>>>>>>>>>>>>>>>>")
-                print(hlN)
+                # print("Hill mod -------------->>>>>>>>>>>>>>>>>>>>")
+                # print(hlN)
                 mod2 <- lm(expr ~ I(dose^hlN / (Kd + dose^hlN)),data = dataframe)
                 #mod2 <- lm(expr ~ I(dose^n / (Kd + dose^n)),data = dataframe)
                 
@@ -838,8 +836,8 @@ fit_models_mselect = function(formula=expr~dose, dataframe=df_gi,sel_mod_list=se
                 
               }else{
                 
-                print("OPtimal model for drm -------------------->")
-                print(paste(mod_name,"()",sep=""))
+                # print("OPtimal model for drm -------------------->")
+                # print(paste(mod_name,"()",sep=""))
                 mod2 <- mod.internal$opt_mod#drm(formula = formula, data=dataframe,type="continuous", fct=f_list[[which(f_names %in% paste(mod_name,"()",sep=""))]])
               }
             }
@@ -978,11 +976,7 @@ BMD_filters = function(BMDRes,
     to_rem_bmdu_bmdl_ratio = which(bmdubmdl > bmdu_bmdl_th)
     
     to_rem_ratio = union(to_rem_bmd_bmdl_ratio, union(to_rem_bmdu_bmd_ratio,to_rem_bmdu_bmdl_ratio))
-    
-    #   	print(paste("ratio filter removes ", length(to_rem_ratio),sep = ""))
-    # 		print(bmdbmdl)
-    # 		print(bmdubmd)
-    # 		print(bmdubmdl)
+
     to_rem = union(to_rem,to_rem_ratio)
   }
   
