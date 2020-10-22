@@ -1579,8 +1579,6 @@ shinyServer(function(input, output, session) {
       return(NULL)
     }
     
-    print("xyz")
-    
     selectedrowindex = input$PAT_table_rows_selected[length(input$PAT_table_rows_selected)]
     selectedrowindex = as.numeric(selectedrowindex)
     
@@ -1597,9 +1595,7 @@ shinyServer(function(input, output, session) {
       BMDFilMat = gVars$MQ_BMD_filtered[[exp_tp[1]]][[exp_tp[2]]]$BMDValues_filtered
       
     }
-
     
-    #BMDFilMat = gVars$MQ_BMD_filtered[[input$time_point_id_visualPat]]$BMDValues_filtered
     gi = unlist(strsplit(x = ER[input$PAT_table_rows_selected,2],split = ","))
     idx = which(tolower(BMDFilMat[,1])%in% tolower(gi))
     BMD = as.numeric(BMDFilMat[idx,"BMD"])
@@ -1608,12 +1604,8 @@ shinyServer(function(input, output, session) {
     
     names(BMD) = BMDFilMat[idx,"Gene"]
     names(BMDL) = names(BMDU) = names(BMD)
-    print("plotto un pathwayyyyyyyy - >>>>>>>>>> ")
-    print(BMD)
-    #save(selectedrowindex,ER,BMDFilMat, gi, idx, BMD, BMDL, BMDU, file = "../path_plot.RData")
     
-    #BMD = sort(BMD, decreasing = F)
-    
+
     BMD = data.frame(gene = names(BMD), bmd = BMD, bmdl = BMDL, bmdu = BMDU)
     BMD = BMD[order(BMD$bmd),]
     BMD$gene = factor(x = BMD$gene, levels = BMD$gene)
@@ -1625,8 +1617,7 @@ shinyServer(function(input, output, session) {
       labs(y = "BMDL - BMD - BMDU", x = "Gene")
       
     ggplotly(p)
-    #plot(BMD, type = "l")
-    
+
   })
   
   output$PAT_table = DT::renderDataTable({
