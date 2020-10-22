@@ -78,9 +78,7 @@ tmpMethod <- NULL
 #Function to hide bsCollapsePanel
 hideBSCollapsePanel <- function(session, panel.name)
 {
-  #print("In hideBSCollapsePanel")
   session$sendCustomMessage(type='hideBSCollapsePanelMessage', message=list(name=panel.name))
-  #print("Exiting hideBSCollapsePanel")
 }
 
 
@@ -149,13 +147,10 @@ shinyServer(function(input, output, session) {
   gVars$baChoices <- c("None"="none", "Scale"="scale", "Quantile"="quantile", "Cyclic Loess"="cyclicloess")
   
   
-  #gVars$inputGx <- 
   observeEvent(input$upload_gx_submit, {
     gxFile <- input$gx
     if (is.null(gxFile))
       return(NULL)
-    
-    print("Reading loaded gx File...")
     
     gx = read_excel_allsheets(filename = gxFile$datapath,tibble = FALSE)
     for(i in 1:length(gx)){
@@ -178,7 +173,6 @@ shinyServer(function(input, output, session) {
     shinyBS::toggleModal(session, "importGxModal", toggle="close")
     shinyBS::updateButton(session, "import_expr_submit", style="success", icon=icon("check-circle"))
     shinyBS::updateCollapse(session, "bsSidebar1", open="GENE FILTERING", style=list("LOAD EXPRESSION MATRIX"="success","GENE FILTERING"="warning"))
-    print("open anova")
     shiny::updateTabsetPanel(session, "display",selected = "gExpTab")
     
   })
@@ -211,11 +205,8 @@ shinyServer(function(input, output, session) {
         sepChar=sepS
       }
     }
-    print(sepChar)
-    
+
     quote <- input$quote
-    print(quote)
-    print(is.na(quote))
     if(is.na(quote) || quote=="NA"){
       quote <- ""
     }else if(quote=="SINGLE"){
@@ -246,8 +237,6 @@ shinyServer(function(input, output, session) {
     gVars$dgxFileName <- dgxFile$name
     dgxTable <- read.csv(dgxFile$datapath, row.names=1, header=TRUE, sep=sepChar, stringsAsFactors=FALSE, quote=quote, as.is=TRUE, strip.white=TRUE, check.names=FALSE)
     
-    print("str(dgxTable) -- after:")
-    print(str(dgxTable))
     return(dgxTable)
   })
   
@@ -285,14 +274,11 @@ shinyServer(function(input, output, session) {
       return(NULL)
     
     phFile <- input$fPheno
-    print("separator -->")
     phTable = read_excel_allsheets(filename = phFile$datapath,tibble = FALSE)
     
     phTable = phTable
     
     gVars$phLoaded <- 1
-    print("str(phTable) -- after:")
-    print(str(phTable))
     
     return(phTable)
   })
@@ -314,7 +300,6 @@ shinyServer(function(input, output, session) {
     if(coltypes.nonChar.len>0){
       colNames[["n"]] <- colnames(phTable)[coltypes.nonChar.idx]
     }
-    print(str(colNames))
     return(colNames)
   })
   
@@ -373,24 +358,18 @@ shinyServer(function(input, output, session) {
     phTable <- phenoList[[1]]
     colNames <- paste0(colnames(phTable), " [", c(1:ncol(phTable)), "]")
     colTypesList <- gVars$phColTypes()
-    print(str(colTypesList))
     colClass <- unlist(lapply(phTable, class))
-    print(str(colClass))
 
     colTypesDF <- data.frame(Variable=colNames, Type="-", Class=colClass, t(head(phTable)), stringsAsFactors=FALSE)
     colnames(colTypesDF)[c(4:ncol(colTypesDF))] <- paste0("Sample", c(1:(ncol(colTypesDF)-3)))
     if(!is.null(colTypesList[["c"]])){
-      print("In colTypes C...")
       cIdx <- which(colnames(phTable) %in% colTypesList[["c"]])
-      print(cIdx)
       if(length(cIdx>0)){
         colTypesDF[cIdx,"Type"] <- "factor"
       }
     }
     if(!is.null(colTypesList[["n"]])){
-      print("In colTypes N...")
       nIdx <- which(colnames(phTable) %in% colTypesList[["n"]])
-      print(nIdx)
       if(length(nIdx>0)){
         colTypesDF[nIdx,"Type"] <- "vector"
       }
@@ -1556,8 +1535,7 @@ shinyServer(function(input, output, session) {
     PD$logPval = -log(PD$Adj.pval)
     PD$NGenes = as.numeric(as.vector(PD$NGenes))
     gVars$MeanBMDTimePoint = PD
-    #save(PD, file = "../pathway_bubble.RData")
-    
+
     p <- PD %>%
      ggplot(aes(MeanBMD,logPval, label = FunCategory, color = LevName, size = NGenes)) + # color=FunCategory
       geom_point() +
