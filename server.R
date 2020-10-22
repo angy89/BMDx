@@ -727,11 +727,20 @@ shinyServer(function(input, output, session) {
     #   return(NULL)
     # }
     shiny::validate(
-      need(!is.null(gVars$MQ_BMD_filtered), "No BMD performed!")
+      need(!is.null(gVars$MQ_BMD), "No BMD performed!")
     )
+    
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMDList = gVars$MQ_BMD
+      
+    }else{
+      BMDList = gVars$MQ_BMD_filtered
+    }
     
     GList = list()
     index = 1
+    
+    
     
     for(j in names(gVars$EXP_FIL)){ # for each experiment
       
@@ -740,7 +749,7 @@ shinyServer(function(input, output, session) {
       print(timep)
       
       for(i in timep){
-        BMDFilMat = gVars$MQ_BMD_filtered[[j]][[as.character(i)]]$BMDValues_filtered
+        BMDFilMat = BMDList[[j]][[as.character(i)]][[1]]
         
         genelist = BMDFilMat[,c("Gene","BMD")]
         GList[[paste(j,as.character(i),sep="_")]] = genelist
@@ -1584,25 +1593,29 @@ shinyServer(function(input, output, session) {
   
 
   output$BMD_BMDL = renderPlotly({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
-    
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }    
     #BMD_tab <- gVars$MQ_BMD_filtered#[[input$time_point_id_visual2]]$BMDValues_filtered
     #save(BMD_tab, file="BMD_table.RData")
     
     DF = c()
     for(i in 1:length(BMD_tab)){ # for each time point
-      print(BMD_tab[[i]]$BMDValues_filtered)
-      if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-        if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
+      print(BMD_tab[[i]][[1]])
+      if(!is.null(BMD_tab[[i]][[1]])){
+        if(nrow(BMD_tab[[i]][[1]])>=1){
           DF = rbind(DF, cbind(names(BMD_tab)[i],
-                           BMD_tab[[i]]$BMDValues_filtered[,"BMD"],
-                           BMD_tab[[i]]$BMDValues_filtered[,"BMDL"],
-                           as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"])))
+                           BMD_tab[[i]][[1]][,"BMD"],
+                           BMD_tab[[i]][[1]][,"BMDL"],
+                           as.character(BMD_tab[[i]][[1]][,"MOD_NAME"])))
         }
       }
     }
@@ -1627,19 +1640,24 @@ shinyServer(function(input, output, session) {
   })
   
   output$BMD_dist_models = renderPlot({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }
     
     DF = c()
     for(i in 1:length(BMD_tab)){ # for each time point
-      print(BMD_tab[[i]]$BMDValues_filtered)
-      if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-        if(nrow((BMD_tab[[i]]$BMDValues_filtered))>=1){
-          xx = cbind(names(BMD_tab)[i],as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]))
+      print(BMD_tab[[i]][[1]])
+      if(!is.null(BMD_tab[[i]][[1]])){
+        if(nrow((BMD_tab[[i]][[1]]))>=1){
+          xx = cbind(names(BMD_tab)[i],as.character(BMD_tab[[i]][[1]][,"MOD_NAME"]))
           print(xx)
           DF = rbind(DF, xx)
         }
@@ -1669,23 +1687,28 @@ shinyServer(function(input, output, session) {
   })
   
   output$BMD_BMDL_BMDU_by_model = renderPlotly({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
     
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
-
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }
+    
     DF = c()
     for(i in 1:length(BMD_tab)){ # for each time point
-      print(BMD_tab[[i]]$BMDValues_filtered)
-      if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-        if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
+      # print(BMD_tab[[i]]$BMDValues_filtered)
+      if(!is.null(BMD_tab[[i]][[1]])){
+        if(nrow(BMD_tab[[i]][[1]])>=1){
           
-          mi = rbind(cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"],   as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]),"BMD"),
-                     cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMDL"],  as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]),"BMDL"),
-                     cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMDU"],  as.character(BMD_tab[[i]]$BMDValues_filtered[,"MOD_NAME"]), "BMDU"))
+          mi = rbind(cbind(names(BMD_tab)[i],BMD_tab[[i]][[1]][,"BMD"],   as.character(BMD_tab[[i]][[1]][,"MOD_NAME"]),"BMD"),
+                     cbind(names(BMD_tab)[i],BMD_tab[[i]][[1]][,"BMDL"],  as.character(BMD_tab[[i]][[1]][,"MOD_NAME"]),"BMDL"),
+                     cbind(names(BMD_tab)[i],BMD_tab[[i]][[1]][,"BMDU"],  as.character(BMD_tab[[i]][[1]][,"MOD_NAME"]), "BMDU"))
           
           DF = rbind(DF, mi)
         }
@@ -1706,20 +1729,25 @@ shinyServer(function(input, output, session) {
   })
   
   output$BMD_dist_TP = renderPlotly({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
-    print("in BMD_dist_TP --------------------->>>>>>>>>>>>>>>>>>>>>")
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+  
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }
 
     DF = c()
     for(i in 1:length(BMD_tab)){
-      print(BMD_tab[[i]]$BMDValues_filtered)
+      print(BMD_tab[[i]][[1]])
       
-      if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-        if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-          xx = cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"BMD"])
+      if(!is.null(BMD_tab[[i]][[1]])){
+        if(nrow(BMD_tab[[i]][[1]])>=1){
+          xx = cbind(names(BMD_tab)[i],BMD_tab[[i]][[1]][,"BMD"])
           print(xx)
           DF = rbind(DF, xx)
         }
@@ -1751,17 +1779,23 @@ shinyServer(function(input, output, session) {
   })
   
   output$BMD_pval_fitting = renderPlotly({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }    
     
     DF = c()
     for(i in 1:length(BMD_tab)){
-      if(!is.null(BMD_tab[[i]]$BMDValues_filtered)){
-        if(nrow(BMD_tab[[i]]$BMDValues_filtered)>=1){
-          DF = rbind(DF, cbind(names(BMD_tab)[i],BMD_tab[[i]]$BMDValues_filtered[,"LOFPVal"]))
+      if(!is.null(BMD_tab[[i]][[1]])){
+        if(nrow(BMD_tab[[i]][[1]])>=1){
+          DF = rbind(DF, cbind(names(BMD_tab)[i],BMD_tab[[i]][[1]][,"LOFPVal"]))
         }
       }
     }
@@ -1779,17 +1813,24 @@ shinyServer(function(input, output, session) {
   })
     
   output$NGTime = renderPlotly({
-    if(is.null(gVars$MQ_BMD_filtered)){ 
+    if(is.null(gVars$MQ_BMD)){ 
       print("Null BMD")
       return(NULL)
     }
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    # BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }    
+    
     
     GL = list()
     NG = c()
     for(i in 1:length(BMD_tab)){
-      BMD_tab2 <- BMD_tab[[i]]$BMDValues_filtered
+      BMD_tab2 <- BMD_tab[[i]][[1]]
       if(!is.null(BMD_tab2) & nrow(BMD_tab2)>0){
         GL[[names(BMD_tab)[i]]] =  BMD_tab2[,"Gene"]
         NG = rbind(NG, c(names(BMD_tab)[i], nrow(BMD_tab2)))
@@ -1812,13 +1853,17 @@ shinyServer(function(input, output, session) {
   
   
   output$gene_bmd_plot = renderPlotly({
-    if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    if(is.null(gVars$MQ_BMD)){ return(NULL) }
     if(is.null(input$geneClust)) {return(NULL)}
     if(is.null(input$intersectionName)) {return(NULL)}
     
     print("gene_bmd_plot")
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
-
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    } 
     if(length(BMD_tab)>1){
       
       c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
@@ -1844,11 +1889,15 @@ shinyServer(function(input, output, session) {
   
   
   output$nclustvenn <- renderUI({
-    if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    if(is.null(gVars$MQ_BMD)){ return(NULL) }
     print("nclustvenn")
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
-    
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }     
     
     if(length(BMD_tab)>1){
       c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
@@ -1866,11 +1915,15 @@ shinyServer(function(input, output, session) {
   })
   
   output$intersectionNameUI <- renderUI({
-    if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    if(is.null(gVars$MQ_BMD)){ return(NULL) }
     print("intersectionNameUI")
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
-    
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }     
     
     if(length(BMD_tab)>1){
       c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
@@ -1885,10 +1938,14 @@ shinyServer(function(input, output, session) {
   
   
   output$VennDF = DT::renderDataTable({
-    if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
+    if(is.null(gVars$MQ_BMD)){ return(NULL) }
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
-    
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }     
     
     if(length(BMD_tab)>1){
       c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
@@ -1910,11 +1967,14 @@ shinyServer(function(input, output, session) {
   })
 
   output$NGVenn = renderPlot({
-    if(is.null(gVars$MQ_BMD_filtered)){ return(NULL) }
-    print("NGVenn")
+    if(is.null(gVars$MQ_BMD)){ return(NULL) }
     
-    BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]
-    
+    print(":")
+    if(is.null(gVars$MQ_BMD_filtered)){
+      BMD_tab <- gVars$MQ_BMD[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }else{
+      BMD_tab <- gVars$MQ_BMD_filtered[[input$experiment_bmd]]#[[input$time_point_id_visual2]]$BMDValues_filtered
+    }     
     
     if(length(BMD_tab)>1){
       c(GL, ItemsList) %<-%  venn_diagram_bmd_genes_across_time_point(BMD_tab)
