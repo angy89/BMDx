@@ -396,9 +396,6 @@ shinyServer(function(input, output, session) {
         need(!is.null(gVars$inputGx), "No Expression File Provided!")
       )
       
-      print("skip anova")
-      
-      #timep = unique(gVars$phTable[,gVars$TPColID])
       EXP_FIL_List = list()
       VG_List = list()
       NVG_List = list()
@@ -422,14 +419,10 @@ shinyServer(function(input, output, session) {
       gVars$var_genes = VG_List #var_genes
       gVars$not_var_genes = NVG_List #not_var_genes
       gVars$PValMat= PValMat_List #PValMat
-      
-      print("no anova")
-      
+    
       shinyBS::updateButton(session, "anova_filtering_button", style="success", icon=icon("check-circle"))
       shinyBS::updateButton(session, "skip_anova_filtering_button", style="success", icon=icon("check-circle"))
-      
       shinyBS::updateCollapse(session, "bsSidebar1", open="COMPUTE BMD", style=list("GENE FILTERING"="success","COMPUTE BMD"="warning"))
-      
 
   })
   
