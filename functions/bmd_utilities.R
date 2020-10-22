@@ -682,7 +682,7 @@ compute_bmd = function(exp_data,pheno_data,
       #for(ii in idx){ foreach
       #mclapply
       BMDValues = rbind(BMDValues, res[[i]][[1]])
-      opt_models_list[[res[[i]][[1]][1]]] = res[[1]][[2]]
+      opt_models_list[[res[[i]][[1]][1]]] = res[[i]][[2]]
       #foreach
       # BMDValues = rbind(BMDValues, res[[ii]])
       # opt_models_list[[res[[ii]][1]]] = res[[ii+1]]

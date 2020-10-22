@@ -435,8 +435,6 @@ shinyServer(function(input, output, session) {
       need(!is.null(gVars$inputGx), "No Phenotype File Provided!")
     )
     
-  print("in trend test")
-    
     trend_test_res = trend_test(pheno_data_list=gVars$phTable,
                                 expression_list=gVars$inputGx,
                                 time_point_index = gVars$TPColID,
@@ -503,7 +501,6 @@ shinyServer(function(input, output, session) {
               "Cannot perform anova with only one dose-level. check dose and time point columns"
             })
             
-            #shinyalert("Oops!", "Cannot perform anova with only one dose-level. check dose and time point columns", type = "error")
             anova_completed=FALSE
             return(NULL)
           }else{
@@ -588,17 +585,14 @@ shinyServer(function(input, output, session) {
     shinyjs::show(id="loading-content")
     
     
-    print("BMD")
-    
+
     withProgress(message = 'Running BMD', detail = paste("Experiment: ",1 ,"/",length(gVars$phTable),sep=""), value = 1, {
     MQ_BMDList = list()
     # MQ_BMDListFiltered = list()
     # MQ_BMDListFilteredValues = list()
     
     for(j in 1:length(gVars$phTable)){
-      print("this is the j ----> ")
-      print(j)
-      
+
       pTable = gVars$phTable[[j]]
       timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
       print(timep)
@@ -608,8 +602,6 @@ shinyServer(function(input, output, session) {
       
       for(i in timep){
 
-        print("xxx")
-        
         MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], 
                                                                                 pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
                                                                                 time_t=as.character(i), 
@@ -684,8 +676,6 @@ shinyServer(function(input, output, session) {
       MQ_BMDListFilteredValues = list()
       
       for(j in 1:length(gVars$phTable)){
-        print("this is the j ----> ")
-        print(j)
         
         pTable = gVars$phTable[[j]]
         timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
@@ -717,8 +707,6 @@ shinyServer(function(input, output, session) {
       }
     })
     
-    print("test")
-    # gVars$MQ_BMD = MQ_BMDList
     gVars$MQ_BMD_filtered = MQ_BMDListFiltered
     gVars$MQ_BMDListFilteredValues = MQ_BMDListFilteredValues
     gVars$MQ_BMD_filtered2 = gVars$MQ_BMD_filtered
@@ -762,8 +750,7 @@ shinyServer(function(input, output, session) {
       }   
     }
     
-    #print(input$range)
-    
+
     th1 = input$range[1]/100 #0
     th2 = input$range[2]/100 #10
      
@@ -776,11 +763,6 @@ shinyServer(function(input, output, session) {
       listUpset[[names(GList)[i]]] = as.character(GList[[i]][idx,1])
     }
     
-    # drugs = unlist(lapply(X = strsplit(names(listUpset),split = "_"), FUN = function(elem)elem[1]))
-    # TP = unlist(lapply(X = strsplit(names(listUpset),split = "_"), FUN = function(elem)elem[2]))
-    # 
-    # drcolor = rainbow(length(unique(drugs)))
-    # names(drcolor) = unique(drugs)
     upset(fromList(listUpset),nsets = length(listUpset),nintersects = input$maxInt, group.by = input$groupby,order.by = input$orderby)
    # upset(fromList(listUpset),nsets = length(listUpset),nintersects = 50,group.by = "sets",order.by = "freq")
     
@@ -798,16 +780,13 @@ shinyServer(function(input, output, session) {
         
         return(NULL)
       }
-      print('Thank you for clicking')
-      
+
       shinyjs::html(id="loadingText", "Saving tables")
       shinyjs::show(id="loading-content")
       on.exit({
         print("inside on exit")
         shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")    
       })
-      
-      print("I'm saving anova tables")
       
       write.xlsx(gVars$GList[[1]], file, sheetName = names(gVars$GList)[1], row.names = FALSE) 
       
@@ -820,14 +799,11 @@ shinyServer(function(input, output, session) {
       write.xlsx(gVars$pheno, file, sheetName = "Groups", append = TRUE, row.names = FALSE) 
       
       
-      print("Funmappone input stored!")
     }
   )
   
 
   observeEvent(input$enrichment_analysis, {
-    
-    print("XXXX")
     
     shiny::validate(
       need(!is.null(gVars$MQ_BMD), "No BMD performed!")
@@ -842,10 +818,7 @@ shinyServer(function(input, output, session) {
     shinyjs::html(id="loadingText", "COMPUTING ENRICHMENT")
     shinyjs::show(id="loading-content")
     
-    # thrs = input$filterBMD
-    # print(thrs)
-    
-    print("Enrichment Analysis")
+ 
     nExp = length(gVars$EXP_FIL)
     
     EnrichRes = list()
@@ -863,14 +836,10 @@ shinyServer(function(input, output, session) {
         pTable = gVars$phTable[[j]]
         timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
         
-        #timep = unique(pTable[,gVars$TPColID])
         print(timep)
         
         for(i in timep){
           BMDFilMat = bmd_data[[j]][[as.character(i)]][[1]] # matrix with computed bmd values
-          
-          # tths = quantile(BMDFilMat[,"BMD"],probs = thrs/100)
-          # iidx = which(BMDFilMat[,"BMD"]>=tths[1] & BMDFilMat[,"BMD"]<=tths[2])
           
           genelist = BMDFilMat[,c("Gene","BMD")]
           GList[[paste(j,as.character(i),sep="_")]] = genelist
