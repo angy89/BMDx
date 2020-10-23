@@ -10,6 +10,9 @@ library(plotly)
 library(xtable)
 
 appCSS <- "
+//.modal-lg {
+//width: 95%;
+//}
 //.main-header { z-index: 100000; }
 .main-sidebar { background-color: white !important;}
 .sidebar { color: black; max-height: 900px; overflow-y: scroll; }
@@ -26,10 +29,10 @@ appCSS <- "
 .panel-info .panel-heading { background-color: #7e46ff; }
 .panel-primary .panel-heading { background-color: #3079ae; }
 .multicol { 
-height: 150px;
--webkit-column-count: 5; /* Chrome, Safari, Opera */ 
--moz-column-count: 5;    /* Firefox */ 
-column-count: 5; 
+height: 300px;
+-webkit-column-count: 4; /* Chrome, Safari, Opera */ 
+-moz-column-count: 4;    /* Firefox */ 
+column-count: 4; 
 -moz-column-fill: auto;
 -column-fill: auto;
 } 
@@ -54,6 +57,7 @@ margin-right: auto;
 vertical-align: middle;
 z-index: 1000000;
 }
+
 "
 
 jsCode <- "
@@ -239,7 +243,6 @@ fluidPage(
       shinyBS::bsModal("computeBMD", "Compute BMD Value", "bmd_button", size="large",
                        fluidRow(
                          column(3, textInput("RespLev", label = "Response Level", value =1.349)),
-                         column(3, textInput("RespLev", label = "Response Level", value =1.349)),
                          column(3, checkboxInput("constantVar", "Assumption of Constant Variance", value = TRUE)),
                          column(3, sliderInput("conf_interval", "Confidece Interval:", min = 0, max = 1, value = 0.95))
                        ),
@@ -267,7 +270,10 @@ fluidPage(
                          column(12,selectInput("BMDSettings", "Select the BMD analysis setting", choices=c("All","Regulatory","Degree of Freedom", "Custom"),selected="Custom"))
                        ),
                        fluidRow(
-                         column(12,wellPanel(uiOutput("bmd_checkbox")))
+                         column(12,offset = 0, 
+                                wellPanel(uiOutput("bmd_checkbox"))
+                            
+                        )
                        ),
                        fluidRow(
                          column(12, align="right",shinyBS::bsButton("bmd_analysis", label="Run BMD", style="info", icon=icon("hand-o-right")))

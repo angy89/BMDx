@@ -2801,14 +2801,14 @@ shinyServer(function(input, output, session) {
     tags$div(align = 'left',class = 'multicol', 
              checkboxGroupInput("ModGroup", label = "Models available", 
                                 choices = list(
-                                   "LL.2"=1, "LL.3"=2,"LL.3u"=3,"LL.4"=4,"LL.5"=5,
-                                   "W1.2"=6,"W1.3"=7,"W1.4"=8, "W2.2"=9,"W2.3"=10,"W2.4"=11,
-                                   "BC.4"=12,"BC.5"=13,
-                                   "LL2.2"=14, "LL2.3"=15,"LL2.4"=16,"LL2.5"=17,
-                                  "AR.2"=18,
-                                  "AR.3"=19,
-                                  "MM.2"=20,
-                                  "MM.3"=21,
+                                   "Log-Logistic.2"=1, "Log-Logistic.3"=2,"Log-Logistic.3u"=3,"Log-Logistic.4"=4,"Log-Logistic.5"=5,
+                                   "Weibull.2"=6,"Weibull.3"=7,"Weibull.4"=8, "Weibull.2"=9,"Weibull.3"=10,"Weibull.4"=11,
+                                   "Brain-Cousens.4"=12,"Brain-Cousens.5"=13,
+                                   "Log-Logistic2.2"=14, "Log-Logistic2.3"=15,"Log-Logistic2.4"=16,"Log-Logistic2.5"=17,
+                                  "Asymptotic regression.2"=18,
+                                  "Asymptotic regression.3"=19,
+                                  "Michaelis-Menten.2"=20,
+                                  "Michaelis-Menten.3"=21,
                                   "Linear"=22,
                                   "Quadratic"=23,
                                   "Cubic"=24,
@@ -2837,7 +2837,7 @@ shinyServer(function(input, output, session) {
                                 #                #"BC.4"=12,"BC.5"=13
                                 #                #"LL2.2"=14,"LL2.3"=15,"LL2.4"=16,"LL2.5"=17,"LL.3u"=3,"W2.2"=9,"W2.3"=10,"W2.4"=11
                                 # ),
-                                selected = selected,inline = FALSE)
+                                selected = selected,inline = FALSE, width = '80%')
     )
   })
   
