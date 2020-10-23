@@ -2119,6 +2119,8 @@ shinyServer(function(input, output, session) {
     
     BMD_tab
     
+    # rownames(BMD_tab) = NULL
+    
   },selection = "single", server = TRUE)
   
   # remember to remove
@@ -2767,13 +2769,13 @@ shinyServer(function(input, output, session) {
     shiny::validate(need(is.null(gVars$BMDSettings), "No BMD Settings!"))
     
     if(input$BMDSettings == "All"){
-      selected = 18:34#c(1,2,4,5,6,7,8,12,13,18:34) 
+      selected = 1:34#c(1,2,4,5,6,7,8,12,13,18:34) 
     }
     if(input$BMDSettings == "Regulatory"){
-      selected = 22:34
+      selected = c(1:5,22:34)
     }
     if(input$BMDSettings == "Custom"){
-      selected = c(22,23,25,29,30,31)#c(19,21,22,23,25,27)
+      selected = c(1,2,3,22,23,25,31,32,34)#c(19,21,22,23,25,27)
     }
     if(input$BMDSettings == "Degree of Freedom"){
       print("degree of freedom")
@@ -2788,8 +2790,8 @@ shinyServer(function(input, output, session) {
       if(length(nDoses)>0){
         nDose = min(nDoses)-1
         DF =  nDose - 1
-        modDF = c(2,3,Inf, 4,5,2,3,4,Inf,Inf,Inf,4,5,Inf,Inf,Inf,Inf,2,3,2,3,1,2,3,2,3,4,1,1,1,2,3,4,5)
-        modDF = c(rep(Inf, 17), modDF[18:length(modDF)])
+        modDF = c(1,2,3, 4,5,2,3,4,2,3,4,4,5,2,3,4,5,2,3,2,3,1,2,3,2,3,4,1,1,1,2,3,4,5)
+        #modDF = c(rep(Inf, 17), modDF[18:length(modDF)])
         selected = which(modDF<=DF)
       }else{
         selected = c()
@@ -2799,10 +2801,10 @@ shinyServer(function(input, output, session) {
     tags$div(align = 'left',class = 'multicol', 
              checkboxGroupInput("ModGroup", label = "Models available", 
                                 choices = list(
-                                  # "LL.2"=1, "LL.3"=2,"LL.3u"=3,"LL.4"=4,"LL.5"=5,
-                                  # "W1.2"=6,"W1.3"=7,"W1.4"=8, "W2.2"=9,"W2.3"=10,"W2.4"=11,
-                                  # "BC.4"=12,"BC.5"=13,
-                                  # "LL2.2"=14, "LL2.3"=15,"LL2.4"=16,"LL2.5"=17,
+                                   "LL.2"=1, "LL.3"=2,"LL.3u"=3,"LL.4"=4,"LL.5"=5,
+                                   "W1.2"=6,"W1.3"=7,"W1.4"=8, "W2.2"=9,"W2.3"=10,"W2.4"=11,
+                                   "BC.4"=12,"BC.5"=13,
+                                   "LL2.2"=14, "LL2.3"=15,"LL2.4"=16,"LL2.5"=17,
                                   "AR.2"=18,
                                   "AR.3"=19,
                                   "MM.2"=20,

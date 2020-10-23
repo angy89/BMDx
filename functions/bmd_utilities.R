@@ -168,6 +168,12 @@ compute_anova_multiple_experiments = function(pheno_data_list,expression_list, t
 #' \item{filt_exp}{filtered matrix of expression values containing only the genes that survive the anova test}
 #' \item{not_var_genes}{genes that do not survive the anova test}
 #' \item{var_genes}{genes passing the anova test}
+#' @importFrom parallel makeCluster
+#' @importFrom parallel stopCluster
+#' @importFrom doParallel registerDoParallel
+#' @importFrom foreach foreach
+#' @importFrom foreach %dopar%
+#' @importFrom stats aov
 #' @export
 
 compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1, adj.pval = TRUE, p.th=0.01, nCores = 1){
@@ -241,10 +247,19 @@ compute_anova = function(exp_data, pheno_data, time_t=24,tpc = 4, dc = 2, sc = 1
   
 }
 
+#' This function filters the expression matrix after the anova
+#' @param exp_data expression matrix
+#' @param pvalues_genes vactor of pvalues for the anova across multiple doses of each gene
+#' @param adj.pval boolean value. If TRUE pvalue adjustement are performed before filtering
+#' @param p.th threshold for pvalue
+
+#' @return an list with the filtered expression matrix and gene annotation table with pvalues
+#' @importFrom stats p.adjust
+#' @export
 filter_anova = function(exp_data, pvalues_genes, adj.pval = TRUE, p.th=0.01){
   
   if(adj.pval){
-    pvalues_genes = p.adjust(pvalues_genes,method = "fdr")
+    pvalues_genes = stats::p.adjust(pvalues_genes,method = "fdr")
   }
   
   idx = which(pvalues_genes<=p.th)
@@ -281,12 +296,10 @@ filter_anova = function(exp_data, pvalues_genes, adj.pval = TRUE, p.th=0.01){
     colnames(PValMat) = c("Gene","pvalue")
   
   PValMat[,2] = round(PValMat[,2],4)
-  if(length(not_var_genes)==1) not_var_genes=c(not_var_genes, not_var_genes)
-  if(length(var_genes)==1) var_genes=c(var_genes, var_genes)
-  
   toRet = list(filt_exp=filt_exp, not_var_genes=not_var_genes,var_genes = var_genes,PValMat=PValMat)
-  
+  return(toRet)
 }
+
 
 #' This function compute the BMD values for all the experiments by using the compute_bmd function.
 #' @param filtered_expression_data_list list of expression matrices
@@ -332,14 +345,14 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
   # list_of_bmd_resume_table_filtered = list()
   
   for(j in 1:length(pheno_data_list)){
-    # print(paste("Experiment -------------------------------------------------------------------------------> ",j))
+    print(paste("Experiment -------------------------------------------------------------------------------> ",j))
     timep = as.numeric(names(filtered_expression_data_list[[j]]))
     
     maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     minDose = min(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     
     for(i in timep){
-      # print(paste("Timep -------------------------------------------------------------------------------> ",i))
+      print(paste("Timep -------------------------------------------------------------------------------> ",i))
       
       # print("before compute_bmd")
       
@@ -353,6 +366,7 @@ run_bmd_multiple_experiment = function(filtered_expression_data_list,
       # max_dose = maxDose
       # max_low_dos_perc_allowd = lowest_bmdl
       # max_max_dos_perc_allowd=highest_bmdu
+      # loofth = 0.1
       
       list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]]  = compute_bmd(
         exp_data=filtered_expression_data_list[[names(pheno_data_list)[j]]][[as.character(i)]],
@@ -439,13 +453,25 @@ filter_bmd_multiple_experiment = function(list_of_bmd_fitted_models_and_resume_t
   list_of_bmd_resume_table_filtered = list()
   
   for(j in 1:length(pheno_data_list)){
-    # print(paste("Experiment -------------------------------------------------------------------------------> ",j))
+    print(paste("Experiment -------------------------------------------------------------------------------> ",j))
     timep = as.numeric(names(filtered_expression_data_list[[j]]))
     
     maxDose = max(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     minDose = min(as.numeric(unique(pheno_data_list[[j]][,dose_index])))
     
     for(i in timep){
+      
+      # BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]]
+      # max_dose = as.numeric(maxDose)
+      # min_dose = as.numeric(minDose)
+      # loofth = lack_of_fit_pvalue
+      # max_low_dos_perc_allowd = lowest_bmdl
+      # max_max_dos_perc_allowd = highest_bmdu
+      # ratio_filter = ratio_filter
+      # bmd_bmdl_th = bmd_bmdl_th
+      # bmdu_bmd_th = bmdu_bmd_th
+      # bmdu_bmdl_th = bmdu_bmdl_th
+      # filter_bounds_bmdl_bmdu=filter_bounds_bmdl_bmdu
       
       list_of_bmd_fitted_models_and_resume_table_filtered[[names(pheno_data_list)[j]]][[as.character(i)]] = BMD_filters(
         BMDRes = list_of_bmd_fitted_models_and_resume_table[[names(filtered_expression_data_list)[j]]][[as.character(i)]],
@@ -481,17 +507,18 @@ filter_bmd_multiple_experiment = function(list_of_bmd_fitted_models_and_resume_t
 #' @param ... values returned by the foreach function
 #' @return a list of combined objects
 #' @keywords internal
-#' @examples
 #'
 
 listComb = function(x, ...) {
   # create a list with all the first results of the foreach iteration
   y1 = lapply(list(...), function(y) y[[1]])
   
+  print("in comb")
   print(y1)
   
   # create a matrix from this list
   x1 = matrix(unlist(y1),byrow = T,ncol = length(y1[[1]]))
+  #print(x1)
   
   if(length(y1)>1){
     y2 = lapply(list(...), function(y) y[[2]])
@@ -503,6 +530,9 @@ listComb = function(x, ...) {
   
   
 }
+
+
+
 
 
 #' This function compute the BMD value for all the genes that have an ANOVA pvalue (across the doses) less than 0.05.
@@ -615,15 +645,16 @@ compute_bmd = function(exp_data,pheno_data,
     df_gi = data.frame(dose=dose,expr=exp)
     df_gi$dose = as.numeric(as.vector(df_gi$dose))
     
-    mod = fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
+    mod = BMDx::fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
     
     
     if(is.null(mod)){
       print("no mod fit this gene")
+      return(NULL)
     }else{
       
       
-      bmd.internal.res = compute_bmd_internal(mod,
+      bmd.internal.res = compute_bmd_internal(mod = mod,
                                               dataframe = df_gi,
                                               first_only = first_only,
                                               sd_level, dose,
@@ -643,7 +674,8 @@ compute_bmd = function(exp_data,pheno_data,
       
       #if(!is.null(bmd_val))BMDValues = rbind(BMDValues,c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test))
       if(!is.null(bmd.internal.res)) {
-        bmd_values = c(rownames(exp_data)[i],bmd.internal.res$bmd_val)
+        bmd_values = cbind(rownames(exp_data)[i],bmd.internal.res$bmd_val)
+        colnames(bmd_values)[1] = "Gene"
         #return(list(bmd_values = bmd_values, mod = mod))
         toRet = list()
         toRet[[paste(rownames(exp_data)[i],"BMDValues",sep="_")]] = bmd_values
@@ -664,7 +696,7 @@ compute_bmd = function(exp_data,pheno_data,
   
   #if(length(res)==0){ # foreach
   if(all(lapply(res, is.null))){ #mclapply
-    # print("all models are null................................................")
+    print("all models are null................................................")
     return(list(BMDValues = NULL,opt_models_list=NULL))
   }else{
     #toRem = which(names(res)=="")#foreach
@@ -677,7 +709,7 @@ compute_bmd = function(exp_data,pheno_data,
     opt_models_list = list()
     # idx = seq(from = 1,to = length(res),by = 2)
     
-    # print("formatting parallel results........")
+    print("formatting parallel results........")
     for(i in 1:length(res)){ #mclapply
       #for(ii in idx){ foreach
       #mclapply
@@ -687,7 +719,7 @@ compute_bmd = function(exp_data,pheno_data,
       # BMDValues = rbind(BMDValues, res[[ii]])
       # opt_models_list[[res[[ii]][1]]] = res[[ii+1]]
     }
-    # print("end formatting parallel results........")
+    print("end formatting parallel results........")
     if(length(BMDValues)==0){
       return(list(BMDValues = NULL,opt_models_list=NULL))
     }else{
@@ -718,139 +750,149 @@ compute_bmd = function(exp_data,pheno_data,
 
 
 
-#this function select the the optimal model between the one fitted
-library(ggplot2)
-fit_models_mselect = function(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list, Kd = 10){#, hillN=2, pow = 2){
-  f_list = list(drc::LL.2(),drc::LL.3(),drc::LL.3u(),drc::LL.4(),drc::LL.5(),
-                drc::W1.2(),drc::W1.3(),drc::W1.4(),drc::W2.2(),drc::W2.3(),drc::W2.4(),
-                drc::BC.4(),drc::BC.5(),
-                drc::LL2.2(),drc::LL2.3(),drc::LL2.4(),drc::LL2.5(),
-                drc::AR.2(),drc::AR.3(),
-                drc::MM.2(),drc::MM.3())
-  f_names = c("LL.2()","LL.3()","LL.3u()","LL.4()","LL.5()",
-              "W1.2()","W1.3()","W1.4()","W2.2()","W2.3()","W2.4()",
-              "BC.4()","BC.5()",
-              "LL2.2()","LL2.3()","LL2.4()","LL2.5()",
-              "AR.2()","AR.3()",
-              "MM.2()","MM.3()")
-  
-  mNames = c("LL.2","LL.3","LL.3u","LL.4","LL.5",
-             "W1.2","W1.3","W1.4","W2.2","W2.3","W2.4",
-             "BC.4","BC.5",
-             "LL2.2","LL2.3","LL2.4","LL2.5",
-             "AR.2","AR.3",
-             "MM.2","MM.3","Linear", "Quadratic", "Cubic",
-             "Power2","Power3","Power4","Exponential",
-             "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")
-  
-  hillN = c(0.5,1,2,3,4,5)[which(c("Hill05","Hill1","Hill2","Hill3","Hill4","Hill5") %in% mNames[sel_mod_list])]
-  pow = c(2,3,4)[which(c("Power2","Power3","Power4") %in% mNames[sel_mod_list])]
-  
-  selected_models = sel_mod_list[sel_mod_list<=21] # models selected that can be fitted with the drc package
-  
-  if(length(selected_models)==0){ # if the user do not select any model from the drc package i fit one of them so I can run the mselect2 function
-    selected_models = 19
-  }
-  
-  f_list = f_list[selected_models]
-  f_names = f_names[selected_models]
-  mNames = mNames[sel_mod_list]
-  mod.internal <- fit_models(formula = formula,dataframe = dataframe, f_list=f_list,f_names=f_names)
-  
-  if(is.null(mod.internal)){
-    cat("Mod is null\n")
-    return(NULL)
-  }else{
-    
-    X = mselect2(object = mod.internal$opt_mod, fctList = f_list,sorted = "IC",
-                 linreg= TRUE, powreg = TRUE, pow = pow, expreg = TRUE, hillreg = TRUE, hillN = hillN, Kd = Kd)
-    
-    mname = gsub(pattern = "\\(\\)",replacement = "",x = mod.internal$mod_name)
-    X[which(rownames(X) %in% mname)[1],3] = mod.internal$loof_test$`p value`[2]
-    
-    toSelect = rownames(X) %in% mNames
-    if(sum(toSelect) == 1){
-      ss = matrix(data = X[toSelect,],nrow = 1,dimnames = list(rownames(X)[rownames(X) %in% mNames],names(X[toSelect,])))
-      X = ss
-    }else{
-      X = X[toSelect,]
-    }
-    
-    
-    toRem = which(is.na(X[,3]))
-    
-    if(length(toRem) == nrow(X)){ #all the lack of fit are NA
-      return(NULL)
-      #toRem = c()
-      
-    }
-    
-    if(length(toRem)>0){
-      if(length(toRem)< nrow(X)){
-        X = X[-toRem,,drop=FALSE]
-      }
-    }
-    
-    mod_name = rownames(X)[1]
-    
-    # print("OPtimal model -------------------->")
-    # print(mod_name)
-    if(mod_name %in% "Linear"){
-      mod2 = lm(formula,dataframe)
-      #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
-    }
-    else{
-      if(mod_name %in% "Quadratic"){
-        mod2 = lm(expr ~ dose + I(dose * dose), data = dataframe)
-        #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
-        
-      }else{
-        if(mod_name %in% "Cubic"){
-          mod2 = lm(expr~dose + I(dose * dose) +  I(dose * dose * dose), data = dataframe)
-        }else{
-          if(mod_name %in% c("Power2","Power3","Power4")){
-            sp = as.numeric(gsub(pattern = "Power",replacement = "",x = mod_name))
-            # print("Power mod -------------->>>>>>>>>>>>>>>>>>>>")
-            # print(sp)
-            mod2 = lm(expr ~ I(dose^sp), data = dataframe)
-            #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
-            
-          }else{
-            if(mod_name %in% "Exponential"){
-              mod2 = lm(expr ~ I(exp(dose)), data = dataframe)
-              #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
-              
-            }else{
-              if(mod_name %in% c("Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
-                hlN = gsub(pattern = "Hill",replacement = "",x = mod_name)
-                if(hlN == "05") hlN = 0.05
-                hlN = as.numeric(hlN)
-                # print("Hill mod -------------->>>>>>>>>>>>>>>>>>>>")
-                # print(hlN)
-                mod2 <- lm(expr ~ I(dose^hlN / (Kd + dose^hlN)),data = dataframe)
-                #mod2 <- lm(expr ~ I(dose^n / (Kd + dose^n)),data = dataframe)
-                
-                #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
-                #c(logLik(y.nls), icfct(y.nls), pureErrorAnova(y.nls)[[5]][3], (summary(y.nls)$sigma)^2)
-                #plot(y.nls)
-                
-              }else{
-                
-                # print("OPtimal model for drm -------------------->")
-                # print(paste(mod_name,"()",sep=""))
-                mod2 <- mod.internal$opt_mod#drm(formula = formula, data=dataframe,type="continuous", fct=f_list[[which(f_names %in% paste(mod_name,"()",sep=""))]])
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    return(list(opt_mod = mod2, mod_name = mod_name,loof_test = X[1,3],aic = X[1,2], X = X))
-    
-  }
-  
-}
+# this function select the the optimal model between the one fitted
+# @param formula formula to be fitted. Default value expr~dose
+# @param dataframe dataframe containing the data for the fitting
+# @param sel_mod_list vector of integers to specify the models to be fitted. Fossible models are "LL.2","LL.3","LL.3u","LL.4","LL.5","W1.2","W1.3","W1.4","W2.2","W2.3","W2.4","BC.4","BC.5","LL2.2","LL2.3","LL2.4","LL2.5","AR.2","AR.3","MM.2","MM.3","Linear", "Quadratic", "Cubic","Power2","Power3","Power4","Exponential","Hill05","Hill1","Hill2","Hill3","Hill4","Hill5"
+# @param Kd Kd parameter for hill models
+# @return the optimal fitted model
+# @importFrom stats lm
+
+# fit_models_mselect = function(formula=expr~dose, dataframe,sel_mod_list=sel_mod_list, Kd = 10){#, hillN=2, pow = 2){
+#   f_list = list(drc::LL.2(),drc::LL.3(),drc::LL.3u(),drc::LL.4(),drc::LL.5(),
+#                 drc::W1.2(),drc::W1.3(),drc::W1.4(),drc::W2.2(),drc::W2.3(),drc::W2.4(),
+#                 drc::BC.4(),drc::BC.5(),
+#                 drc::LL2.2(),drc::LL2.3(),drc::LL2.4(),drc::LL2.5(),
+#                 drc::AR.2(),drc::AR.3(),
+#                 drc::MM.2(),drc::MM.3())
+#   f_names = c("LL.2()","LL.3()","LL.3u()","LL.4()","LL.5()",
+#               "W1.2()","W1.3()","W1.4()","W2.2()","W2.3()","W2.4()",
+#               "BC.4()","BC.5()",
+#               "LL2.2()","LL2.3()","LL2.4()","LL2.5()",
+#               "AR.2()","AR.3()",
+#               "MM.2()","MM.3()")
+#
+#   mNames = c("LL.2","LL.3","LL.3u","LL.4","LL.5",
+#              "W1.2","W1.3","W1.4","W2.2","W2.3","W2.4",
+#              "BC.4","BC.5",
+#              "LL2.2","LL2.3","LL2.4","LL2.5",
+#              "AR.2","AR.3",
+#              "MM.2","MM.3","Linear", "Quadratic", "Cubic",
+#              "Power2","Power3","Power4","Exponential",
+#              "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")
+#
+#   hillN = c(0.5,1,2,3,4,5)[which(c("Hill05","Hill1","Hill2","Hill3","Hill4","Hill5") %in% mNames[sel_mod_list])]
+#   pow = c(2,3,4)[which(c("Power2","Power3","Power4") %in% mNames[sel_mod_list])]
+#
+#   selected_models = sel_mod_list[sel_mod_list<=21] # models selected that can be fitted with the drc package
+#
+#   if(length(selected_models)==0){ # if the user do not select any model from the drc package i fit one of them so I can run the mselect2 function
+#     selected_models = 19
+#   }
+#
+#   f_list = f_list[selected_models]
+#   f_names = f_names[selected_models]
+#   mNames = mNames[sel_mod_list]
+#   mod.internal <- fit_models(formula = formula,dataframe = dataframe, f_list=f_list,f_names=f_names)
+#
+#   if(is.null(mod.internal)){
+#     cat("Mod is null\n")
+#     return(NULL)
+#   }else{
+#
+#     X = mselect2(object = mod.internal$opt_mod, fctList = f_list,sorted = "IC",
+#                  linreg= TRUE, powreg = TRUE, pow = pow, expreg = TRUE, hillreg = TRUE, hillN = hillN, Kd = Kd)
+#
+#     mname = gsub(pattern = "\\(\\)",replacement = "",x = mod.internal$mod_name)
+#     X[which(rownames(X) %in% mname)[1],3] = mod.internal$loof_test$`p value`[2]
+#
+#     toSelect = rownames(X) %in% mNames
+#     if(sum(toSelect) == 1){
+#       ss = matrix(data = X[toSelect,],nrow = 1,dimnames = list(rownames(X)[rownames(X) %in% mNames],names(X[toSelect,])))
+#       X = ss
+#     }else{
+#       X = X[toSelect,]
+#     }
+#
+#
+#     toRem = which(is.na(X[,3]))
+#
+#     if(length(toRem) == nrow(X)){ #all the lack of fit are NA
+#       return(NULL)
+#       #toRem = c()
+#
+#     }
+#
+#     if(length(toRem)>0){
+#       if(length(toRem)< nrow(X)){
+#         X = X[-toRem,,drop=FALSE]
+#       }
+#     }
+#
+#     mod_name = rownames(X)[1]
+#
+#     # print("OPtimal model -------------------->")
+#     # print(mod_name)
+#     if(mod_name %in% "Linear"){
+#       mod2 = stats::lm(formula,dataframe)
+#       #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
+#     }
+#     else{
+#       if(mod_name %in% "Quadratic"){
+#         mod2 = stats::lm(expr ~ dose + I(dose * dose), data = dataframe)
+#         #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
+#
+#       }else{
+#         if(mod_name %in% "Cubic"){
+#           mod2 = stats::lm(expr~dose + I(dose * dose) +  I(dose * dose * dose), data = dataframe)
+#         }else{
+#           if(mod_name %in% c("Power2","Power3","Power4")){
+#             sp = as.numeric(gsub(pattern = "Power",replacement = "",x = mod_name))
+#             # print("Power mod -------------->>>>>>>>>>>>>>>>>>>>")
+#             # print(sp)
+#             mod2 = stats::lm(expr ~ I(dose^sp), data = dataframe)
+#             #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
+#
+#           }else{
+#             if(mod_name %in% "Exponential"){
+#               mod2 = stats::lm(expr ~ I(exp(dose)), data = dataframe)
+#               #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
+#
+#             }else{
+#               if(mod_name %in% c("Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
+#                 hlN = gsub(pattern = "Hill",replacement = "",x = mod_name)
+#                 if(hlN == "05") hlN = 0.05
+#                 hlN = as.numeric(hlN)
+#                 # print("Hill mod -------------->>>>>>>>>>>>>>>>>>>>")
+#                 # print(hlN)
+#                 mod2 <- stats::lm(expr ~ I(dose^hlN / (Kd + dose^hlN)),data = dataframe)
+#                 #mod2 <- lm(expr ~ I(dose^n / (Kd + dose^n)),data = dataframe)
+#
+#                 #effect_plot(mod2, pred = dose, interval = TRUE, plot.points = TRUE)
+#                 #c(logLik(y.nls), icfct(y.nls), pureErrorAnova(y.nls)[[5]][3], (summary(y.nls)$sigma)^2)
+#                 #plot(y.nls)
+#
+#               }else{
+#
+#                 # print("OPtimal model for drm -------------------->")
+#                 # print(paste(mod_name,"()",sep=""))
+#                 mod2 <- mod.internal$opt_mod#drm(formula = formula, data=dataframe,type="continuous", fct=f_list[[which(f_names %in% paste(mod_name,"()",sep=""))]])
+#               }
+#             }
+#           }
+#         }
+#       }
+#     }
+#
+#     return(list(opt_mod = mod2, mod_name = mod_name,loof_test = X[1,3],aic = X[1,2], X = X))
+#
+#   }
+#
+# }
+#
+
+
+
 
 #' This function fit the models available as the fct parameter of function drm in the drc package
 #' @param formula formula to be fitted. Default value expr~dose
@@ -904,6 +946,8 @@ fit_models = function(formula=expr~dose, dataframe,f_list,f_names,mNames){
 
 
 
+
+
 #' This function filters the gene resulting from the compute_bmd function.
 #' In particular the genes with BMD value greter than the maximum dose and the genes with a pvalue smaller that 0.1 are removed
 #' @param BMDRes object output of the function compute_bmd
@@ -921,16 +965,8 @@ fit_models = function(formula=expr~dose, dataframe,f_list,f_names,mNames){
 
 #' @export
 
-BMD_filters = function(BMDRes,
-                       max_dose = 20, 
-                       min_dose, 
-                       max_low_dos_perc_allowd = 0, 
-                       max_max_dos_perc_allowd = 0,
-                       loofth = 0.1, 
-                       ratio_filter = FALSE, 
-                       bmd_bmdl_th = 20, 
-                       bmdu_bmd_th = 20, 
-                       bmdu_bmdl_th = 40,
+BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0,
+                       loofth = 0.1, ratio_filter = FALSE, bmd_bmdl_th = 20, bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
                        filter_bounds_bmdl_bmdu=FALSE){
   
   BMDValues = BMDRes$BMDValues
@@ -959,7 +995,7 @@ BMD_filters = function(BMDRes,
   to_rem = union(union(bmd_to_rem_low_dose,loof_to_rem), union(bmd_na, bmd_neg))
   
   if(filter_bounds_bmdl_bmdu){
-    bounds = union(which(bmdl==0), which(bmdu== max_dose))
+    bounds = union(which(bmdl<=0), which(bmdu>= max_dose))
     # print(paste("bound filter removes ", length(bounds),sep = ""))
     
     to_rem = union(to_rem, bounds)
@@ -976,7 +1012,11 @@ BMD_filters = function(BMDRes,
     to_rem_bmdu_bmdl_ratio = which(bmdubmdl > bmdu_bmdl_th)
     
     to_rem_ratio = union(to_rem_bmd_bmdl_ratio, union(to_rem_bmdu_bmd_ratio,to_rem_bmdu_bmdl_ratio))
-
+    
+    #   	print(paste("ratio filter removes ", length(to_rem_ratio),sep = ""))
+    # 		print(bmdbmdl)
+    # 		print(bmdubmd)
+    # 		print(bmdubmdl)
     to_rem = union(to_rem,to_rem_ratio)
   }
   
@@ -992,68 +1032,6 @@ BMD_filters = function(BMDRes,
   
   return(list(BMDValues_filtered=BMDValues_filtered,BMDModels_filtered=BMDModels_filtered))
 }
-
-
-
-# # This function filters the gene resulting from the compute_bmd function.
-# # In particular the genes with BMD value greter than the maximum dose and the genes with a pvalue smaller that 0.1 are removed
-# 
-# BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0, loofth = 0.1){
-#   BMDValues = BMDRes$BMDValues
-#   BMDModels = BMDRes$opt_models_list
-#   
-#   #bmd_to_rem_low_dose = which(as.numeric(BMDValues[,"BMD"])<= (min_dose - (min_dose*0.1))) 
-#   #bmd_to_rem = which(as.numeric(BMDValues[,"BMD"])>=max_dose)
-#   #loof_to_rem = which(as.numeric(BMDValues[,"LOFPVal"])<=loofth)
-#   #bmd_na = union(which(is.na(BMDValues[,"BMD"])),
-#   #               union(which(is.na(BMDValues[,"BMDL"])),
-#   #                     which(is.na(BMDValues[,"BMDU"])))) 
-#   #bmd_neg = union(which(as.numeric(BMDValues[,"BMD"])<0),
-#   #                union(which(as.numeric(BMDValues[,"BMDL"])<0),
-#   #                      which(as.numeric(BMDValues[,"BMDU"])<0))) 
-#   #bounds = union(which(as.numeric(BMDValues[,"BMDL"])<=0), which(as.numeric(BMDValues[,"BMDU"])>= max_dose))
-#   
-#   bmd_to_rem_low_dose = which(as.numeric(as.vector(BMDValues[,"BMD"]))<= (min_dose - (min_dose*0.1)))
-# 
-#   bmd_to_rem = which(as.numeric(as.vector(BMDValues[,"BMD"]))>=max_dose)
-#   loof_to_rem = which(as.numeric(as.vector(BMDValues[,"LOFPVal"]))<=loofth)
-# 
-#   bmd_na = union(which(is.na(as.vector(BMDValues[,"BMD"]))),
-#                  union(which(is.na(as.vector(BMDValues[,"BMDL"]))),
-#                        which(is.na(as.vector(BMDValues[,"BMDU"])))))
-# 
-#   bmd_na = union(bmd_na, which(is.na(as.numeric(as.vector(BMDValues[,"IC50/EC50"])))))
-# 
-#   bmd_neg = union(which(as.numeric(as.vector(BMDValues[,"BMD"]))<0),
-#                   union(which(as.numeric(as.vector(BMDValues[,"BMDL"]))<0),
-#                         which(as.numeric(as.vector(BMDValues[,"BMDU"]))<0)))
-# 
-#   bounds = union(which(as.numeric(as.vector(BMDValues[,"BMDL"]))<=0), which(as.numeric(as.vector(BMDValues[,"BMDU"]))>= max_dose))
-#   
-#   to_rem = union(union(bmd_to_rem,loof_to_rem), union(bmd_na, bmd_neg))
-#   to_rem = union(to_rem, bmd_to_rem_low_dose)
-#   to_rem = union(to_rem, bounds)
-#   # print("object to rem: ---------------->>>>>>>>")
-#   # print(to_rem)
-#   
-#   if(length(to_rem)>0){
-#     BMDValues_filtered = BMDValues[-to_rem,]
-#     BMDModels_filtered = BMDModels[-to_rem]
-#   }else{
-#     BMDValues_filtered = BMDValues
-#     BMDModels_filtered = BMDModels
-#   }
-#   
-#   #BMDModels_filtered = BMDModels[-c(BMDValues[toRem,1])]
-#   # print("Check that for every gene i have a model")
-#   # print(sum(BMDValues_filtered[,1] %in% names(BMDModels_filtered)))
-#   # print("dim(BMDValues -->")
-#   # print(dim(BMDValues_filtered))
-#   # print("length(BMDModels)")
-#   # print(length(BMDModels_filtered))
-#   
-#   return(list(BMDValues_filtered=BMDValues_filtered,BMDModels_filtered=BMDModels_filtered))
-# }
 
 
 #

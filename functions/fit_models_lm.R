@@ -99,6 +99,7 @@ fit_models_lm = function(dataframe = dataframe, mNames=mNames,linreg= T, powreg 
     hill_params = c(0.5,1,2,3,4,5)
     
     for(hN in hillN){
+      
       if(hN == 0.5)	hill_mod <- stats::lm(expr ~ I(dose^0.5 / (Kd + dose^0.5)),data = dataframe)
       if(hN == 1)	hill_mod <- stats::lm(expr ~ I(dose^1 / (Kd + dose^1)),data = dataframe)
       if(hN == 2)	hill_mod <- stats::lm(expr ~ I(dose^2 / (Kd + dose^2)),data = dataframe)

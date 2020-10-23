@@ -26,6 +26,8 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
                                 bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
                                 filter_bounds_bmdl_bmdu = FALSE){
   
+  exp = dataframe$exp
+  
   n_models = nrow(mod$X)
   if(first_only) max_index = 1 else max_index  = n_models
   
@@ -74,7 +76,6 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
     }, error = function(e) {
       print(e)
       bmd_val = NULL
-      return(NULL)
     })
     
     
@@ -105,6 +106,7 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
   
   return(NULL)
 }
+
 inner.check.model = function(bmd, bmdl, bmdu, ic50,
                              fitting.pval,
                              min_dose,
@@ -140,7 +142,7 @@ inner.check.model = function(bmd, bmdl, bmdu, ic50,
   }
   
   if(filter_bounds_bmdl_bmdu){
-    bounds = bmdl!=0 & bmdu!= max_dose
+    bounds = bmdl>0 & bmdu< max_dose
     pass = pass & bounds
     
   }
@@ -148,7 +150,6 @@ inner.check.model = function(bmd, bmdl, bmdu, ic50,
   return(pass)
   
 }
-
 
 #' Function to compute numerical derivative of the model's predicted values
 #'
