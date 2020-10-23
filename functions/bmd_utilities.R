@@ -645,7 +645,7 @@ compute_bmd = function(exp_data,pheno_data,
     df_gi = data.frame(dose=dose,expr=exp)
     df_gi$dose = as.numeric(as.vector(df_gi$dose))
     
-    mod = BMDx::fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
+    mod = fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
     
     
     if(is.null(mod)){
