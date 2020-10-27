@@ -92,7 +92,8 @@ factorize_cols <- function(phTable, idx){
 
 
 shinyServer(function(input, output, session) {
-
+  # observe_helpers(withMathJax = TRUE)
+  
   # Global variable list
   gVars <- shiny::reactiveValues(
     phTable=NULL,             # setting pheno data matrix
@@ -601,7 +602,32 @@ shinyServer(function(input, output, session) {
       minDose = min(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
       
       for(i in timep){
-
+        print("compute_bmd")
+        
+        exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]]
+        pheno_data=gVars$phTable[[names(gVars$phTable)[j]]]
+        time_t=as.character(i)
+        interval_type = "delta"
+        tpc = gVars$TPColID
+        dc = gVars$doseColID 
+        sc = gVars$sampleColID 
+        sel_mod_list = as.numeric(input$ModGroup)
+        rl = as.numeric(input$RespLev)
+        conf_interval = as.numeric(input$conf_interval)
+        constantVar = input$constantVar
+        nCores = as.numeric(input$BMDNCores)
+        min_dose = minDose
+        max_dose = maxDose
+        max_low_dos_perc_allowd = as.numeric(input$min_dose_perc)
+        max_max_dos_perc_allowd= as.numeric(input$max_dose_perc) 
+        first_only = input$first_model_AIC
+        ratio_filter = input$ratio_filter 
+        bmd_bmdl_th = as.numeric(input$bmd_bmdl_th)
+        bmdu_bmd_th = as.numeric(input$bmdu_bmd_th) 
+        bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th)
+        filter_bounds_bmdl_bmdu = FALSE #input$filter_bounds_bmdl_bmdu,
+        loofth = as.numeric(input$LOOF)
+        
         MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], 
                                                                                 pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
                                                                                 time_t=as.character(i), 
@@ -2769,13 +2795,13 @@ shinyServer(function(input, output, session) {
     shiny::validate(need(is.null(gVars$BMDSettings), "No BMD Settings!"))
     
     if(input$BMDSettings == "All"){
-      selected = 1:34#c(1,2,4,5,6,7,8,12,13,18:34) 
+      selected = c(1,2,4,5,6,7,8,12,13,18:34) #1:34
     }
     if(input$BMDSettings == "Regulatory"){
-      selected = c(1:5,22:34)
+      selected = c(22:34)
     }
     if(input$BMDSettings == "Custom"){
-      selected = c(1,2,3,22,23,25,31,32,34)#c(19,21,22,23,25,27)
+      selected = c(1,22,23,25,31,32,34)#c(19,21,22,23,25,27)
     }
     if(input$BMDSettings == "Degree of Freedom"){
       print("degree of freedom")
@@ -2790,7 +2816,18 @@ shinyServer(function(input, output, session) {
       if(length(nDoses)>0){
         nDose = min(nDoses)-1
         DF =  nDose - 1
-        modDF = c(1,2,3, 4,5,2,3,4,2,3,4,4,5,2,3,4,5,2,3,2,3,1,2,3,2,3,4,1,1,1,2,3,4,5)
+        modDF = c(1,2,Inf, 
+                  4,5,2,
+                  3,4,Inf,
+                  Inf,Inf,4,
+                  5,Inf,Inf,
+                  Inf,Inf,2,
+                  3,2,3,
+                  1,2,3,
+                  2,3,4,
+                  1,1,1,
+                  2,3,4,
+                  5)
         #modDF = c(rep(Inf, 17), modDF[18:length(modDF)])
         selected = which(modDF<=DF)
       }else{
@@ -2798,13 +2835,22 @@ shinyServer(function(input, output, session) {
       }
     }
     
+    # f_list = list(drc::LL.2(),drc::LL.3(),drc::LL.3u(),drc::LL.4(),drc::LL.5(),
+    #               drc::W1.2(),drc::W1.3(),drc::W1.4(),drc::W2.2(),drc::W2.3(),drc::W2.4(),
+    #               drc::BC.4(),drc::BC.5(),
+    #               drc::LL2.2(),drc::LL2.3(),drc::LL2.4(),drc::LL2.5(),
+    #               drc::AR.2(),drc::AR.3(),
+    #               drc::MM.2(),drc::MM.3())
+    
+    
+    
     tags$div(align = 'left',class = 'multicol', 
              checkboxGroupInput("ModGroup", label = "Models available", 
                                 choices = list(
-                                   "Log-Logistic.2"=1, "Log-Logistic.3"=2,"Log-Logistic.3u"=3,"Log-Logistic.4"=4,"Log-Logistic.5"=5,
-                                   "Weibull.2"=6,"Weibull.3"=7,"Weibull.4"=8, "Weibull.2"=9,"Weibull.3"=10,"Weibull.4"=11,
+                                   "Log-Logistic.2"=1, "Log-Logistic.3"=2,"Log-Logistic.4"=4,"Log-Logistic.5"=5,
+                                   "Weibull.2"=6,"Weibull.3"=7,"Weibull.4"=8, #"Weibull.2"=9,"Weibull.3"=10,"Weibull.4"=11,
                                    "Brain-Cousens.4"=12,"Brain-Cousens.5"=13,
-                                   "Log-Logistic2.2"=14, "Log-Logistic2.3"=15,"Log-Logistic2.4"=16,"Log-Logistic2.5"=17,
+                                   #"Log-Logistic2.2"=14, "Log-Logistic2.3"=15,"Log-Logistic2.4"=16,"Log-Logistic2.5"=17,
                                   "Asymptotic regression.2"=18,
                                   "Asymptotic regression.3"=19,
                                   "Michaelis-Menten.2"=20,
@@ -2823,6 +2869,29 @@ shinyServer(function(input, output, session) {
                                   "Hill4"=33,
                                   "Hill5"=34
                                 ),
+                                # choices = list(
+                                #   "Log-Logistic.2"=1, "Log-Logistic.3"=2,"Log-Logistic.3u"=3,"Log-Logistic.4"=4,"Log-Logistic.5"=5,
+                                #   "Weibull.2"=6,"Weibull.3"=7,"Weibull.4"=8, "Weibull.2"=9,"Weibull.3"=10,"Weibull.4"=11,
+                                #   "Brain-Cousens.4"=12,"Brain-Cousens.5"=13,
+                                #   "Log-Logistic2.2"=14, "Log-Logistic2.3"=15,"Log-Logistic2.4"=16,"Log-Logistic2.5"=17,
+                                #   "Asymptotic regression.2"=18,
+                                #   "Asymptotic regression.3"=19,
+                                #   "Michaelis-Menten.2"=20,
+                                #   "Michaelis-Menten.3"=21,
+                                #   "Linear"=22,
+                                #   "Quadratic"=23,
+                                #   "Cubic"=24,
+                                #   "Power2"=25,
+                                #   "Power3"=26,
+                                #   "Power4"=27,
+                                #   "Exponential"=28,
+                                #   "Hill05"=29,
+                                #   "Hill1"=30,
+                                #   "Hill2"=31,
+                                #   "Hill3"=32,
+                                #   "Hill4"=33,
+                                #   "Hill5"=34
+                                # ),
                                 #   list("Linear" = 22, "Quadratic" = 23, "Cubic" = 24,
                                 #                "Power2" = 25, "Power3" = 26,"Power4" = 27,
                                 #                "Exponential" = 28,

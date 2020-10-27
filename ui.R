@@ -8,6 +8,7 @@ suppressMessages(library(rhandsontable))
 suppressMessages(library(shinycssloaders))
 library(plotly)
 library(xtable)
+library(shinyhelper)
 
 appCSS <- "
 //.modal-lg {
@@ -255,6 +256,7 @@ fluidPage(
                          column(4,selectInput("min_dose_perc", "Lowest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0)),
                          column(4,selectInput("max_dose_perc", "Highest dose filter:", choices=c(0,0.1,0.2,0.3),selected=0)),
                          column(4, checkboxInput("filter_bounds_bmdl_bmdu", "Filter by boundary (BMDL=0 or BMDU=maxDose)", value = FALSE))
+                         
                        ),
                        fluidRow(
                          column(3, sliderInput("bmd_bmdl_th", "BMD/BMDL ratio:", min = 0, max = 100, value = 20)),
@@ -272,7 +274,7 @@ fluidPage(
                        fluidRow(
                          column(12,offset = 0, 
                                 wellPanel(uiOutput("bmd_checkbox"))
-                            
+                          
                         )
                        ),
                        fluidRow(
@@ -312,6 +314,49 @@ fluidPage(
                                                                     The user can choose between $$n = 0.5,1,2,3,4,5$$ while Kd is fixed to 10.")
                                                            
                                                            ),
+                                           bsCollapsePanel("Log-logistic Model", style = "primary",
+                                                           withMathJax(),
+                                                           helpText("The Log-logistic 5 model is defined by the five-parameter model function
+                                                                    $$f(dose, (b, c, d, e, f)) = c + \\dfrac{d-c}{(1+\\exp(b(\\log(dose)-\\log(e))))^f}$$
+                                                                    If the parameter f differs from 1 then the function is asymmetric; otherwise it is symmetric (on log scale).$$\n$$",
+                                                                    
+                                                                    "The Log-logistic 4 model is defined by the four-parameter model function
+                                                                    $$f(dose, (b,c,d,e)) = c + \\dfrac{d-c}{1+\\exp(b(\\log(dose)-\\log(e)))}$$
+                                                                    The function is symmetric about the inflection point (e)$$\n$$",
+                                                                    
+                                                                    "The Log-logistic 3 model is defined by the three-parameter model function
+                                                                    $$f(dose, (b,c,e)) =  c + \\dfrac{1-c}{1+\\exp(b(\\log(dose)-\\log(e)))}$$
+                                                                    The function is symmetric about the inflection point (e)$$\n$$",
+                                                                    
+                                                                    "The Log-logistic 2 model is defined by the two-parameter model function
+                                                                    $$f(dose, (b,e)) = \\dfrac{1}{1+\\exp(b(\\log(dose)-\\log(e)))}$$
+                                                                    The function is symmetric about the inflection point (e)"
+                                                                    )
+                                                            ),
+                                           bsCollapsePanel("Weibull Model", style = "primary",
+                                                           withMathJax(),
+                                                           helpText("The Weibull 4 model is defined by the four-parameter model function
+                                                                    $$f(dose, (b, c, d, e)) = c + (d-c) \\exp(-\\exp(b(\\log(dose)-\\log(e))))$$
+                                                                    The function is asymmetric with inflection point at the dose e$$\n$$",
+                                                                    
+                                                                    "The Weibull 3 model is defined by the three-parameter model function
+                                                                    $$f(dose, (b, d, e)) = 0 + (d-0)\\exp(-\\exp(b(\\log(dose)-e)))$$
+                                                                    The function is asymmetric about the inflection point, that is the parameter \\exp(e).$$\n$$",
+                                                                    
+                                                                    "The Weibull 2 model is defined by the two-parameter model function
+                                                                    $$f(dose, (b, e)) = \\exp(-\\exp(b(\\log(dose)-e))).$$
+                                                                    The function is asymmetric about the inflection point, that is the parameter \\exp(e).$$\n$$"
+                                                                    
+                                                           )
+                                                           ),
+                                           bsCollapsePanel("Brain-Cousens models", style = "primary",
+                                                           withMathJax(),
+                                                           helpText("The Brain-Cousens 5 model is defined by the five-parameter model function
+                                                                    $$ f(dose, b,c,d,e,f) = c + \\dfrac{d-c+fdose}{1+\\exp(b(\\log(dose)-\\log(e)))}$$
+                                                                     obtained by extending the four-parameter log-logistic model 4 to take into account inverse u-shaped hormesis effects.
+                                                                    Fixing the lower limit at c = 0 yields the four-parameter model $$\n$$"
+                                                                     )
+                                                            ),
                                            bsCollapsePanel("Asymptotic Regression", style = "primary",
                                                            withMathJax(),
                                                            helpText("The formula for the asymptotic regression model is the following:
@@ -319,7 +364,7 @@ fluidPage(
                                                                     The parameter c is the lower limit (at x=0), the parameter d is the upper limit and 
                                                                     the parameter e>0 is determining the steepness of the increase of dose.
                                                                     The AR.3 model is the one depending from c, d and e parameters. The AR.2 model depends only on d and e parameters, while c is set to zero")
-                                                           ),
+                                           ),
                                            bsCollapsePanel("Michaelis-Menten Model", style = "primary",
                                                            withMathJax(),
                                                            helpText("The model is defined by the three-parameter model (MM.3) function
@@ -327,7 +372,10 @@ fluidPage(
                                                                     It is increasing as a function of the dose, attaining the lower limit c at dose 0 (x=0) and the upper limit d for infinitely large doses. 
                                                                     The parameter e corresponds to the dose yielding a response halfway between c and d. 
                                                                     The common two-parameter Michaelis-Menten model (MM.2) is obtained by setting c equal to 0.")
-                                                           )
+                                           )
+                                           
+                                           
+                                          
                                                            )
                                                            )
                                                            )
