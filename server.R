@@ -2804,35 +2804,39 @@ shinyServer(function(input, output, session) {
       selected = c(1,22,23,25,31,32,34)#c(19,21,22,23,25,27)
     }
     if(input$BMDSettings == "Degree of Freedom"){
+
       print("degree of freedom")
       if(is.null(gVars$phTable)){
         nDose = 0
+        selected = c()
       }else{
         nDoses = c()
         for(i in 1:length(gVars$phTable)){
           nDoses = c(nDoses,length(unique(gVars$phTable[[i]][,gVars$doseColID])))
         }
+        
+        if(length(nDoses)>0){
+          nDose = min(nDoses)-1
+          DF =  nDose - 1
+          modDF = c(1,2,Inf, 
+                    4,5,2,
+                    3,4,Inf,
+                    Inf,Inf,4,
+                    5,Inf,Inf,
+                    Inf,Inf,2,
+                    3,2,3,
+                    1,2,3,
+                    2,3,4,
+                    1,1,1,
+                    2,3,4,
+                    5)
+          #modDF = c(rep(Inf, 17), modDF[18:length(modDF)])
+          selected = which(modDF<=DF)
+        }else{
+          selected = c()
+        }
       }
-      if(length(nDoses)>0){
-        nDose = min(nDoses)-1
-        DF =  nDose - 1
-        modDF = c(1,2,Inf, 
-                  4,5,2,
-                  3,4,Inf,
-                  Inf,Inf,4,
-                  5,Inf,Inf,
-                  Inf,Inf,2,
-                  3,2,3,
-                  1,2,3,
-                  2,3,4,
-                  1,1,1,
-                  2,3,4,
-                  5)
-        #modDF = c(rep(Inf, 17), modDF[18:length(modDF)])
-        selected = which(modDF<=DF)
-      }else{
-        selected = c()
-      }
+
     }
     
     # f_list = list(drc::LL.2(),drc::LL.3(),drc::LL.3u(),drc::LL.4(),drc::LL.5(),
