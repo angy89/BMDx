@@ -1,7 +1,7 @@
 #' This function compute the BMD values for all the experiments by using the compute_bmd function.
 #' @param mod object from fit_models_mselect2
 #' @param dataframe  pheno data tables
-#' @param sd_level standard deviation of controls
+#' @param constantVar boolean specifying if constant or non constant variance is assumed
 #' @param dose vector of doses
 #' @param conf_interval confidence interval value
 #' @param min_dose min dose
@@ -18,8 +18,9 @@
 #' @param filter_bounds_bmdl_bmdu boolean specifyinig if models with bmdl=0 or bmdu = max dose should be removed
 #' @return a list containinig fitted models and resume values
 #' @export
-compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
-                                sd_level, dose, conf_interval, min_dose,max_dose,
+compute_bmd_internal = function(mod, rl=1.349,dataframe, strictly_monotonic = TRUE,
+                                first_only = TRUE,
+                                constantVar, dose, conf_interval, min_dose,max_dose,
                                 interval_type, loofth = 0.1,
                                 max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0,
                                 ratio_filter = FALSE, bmd_bmdl_th = 20,
@@ -27,6 +28,7 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
                                 filter_bounds_bmdl_bmdu = FALSE){
   
   exp = dataframe$exp
+  dose = dataframe$dose
   
   n_models = nrow(mod$X)
   if(first_only) max_index = 1 else max_index  = n_models
@@ -34,13 +36,15 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
   for(i in 1:max_index){
     opt_mod = mod$fitted_models[[i]]
     mod_name = names(mod$fitted_models)[i]
-    mod$X[mod_name,]
+    # mod$X[mod_name,]
     
     bmd_val = tryCatch({
       if(mod_name %in% c("Linear","Quadratic","Cubic","Power2","Power3","Power4","Exponential",
                          "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")){
-        dose = dataframe$dose
-        bmd_val = EDLin(lmObject = opt_mod,respLev = sd_level, dose=dose, ci = conf_interval)
+        
+        # bmd_val = EDLin(lmObject = opt_mod,respLev = sd_level, dose=dose, ci = conf_interval)
+        bmd_val = ED.lin(lmObject = opt_mod,dataframe=dataframe,constant_variance = constantVar,
+                         rl = rl,ci=conf_interval,training_dose = dose, strictly_monotonic=strictly_monotonic)
         
         if(is.null(bmd_val) == FALSE){
           bmd_val = cbind(bmd_val, matrix(c(mod_name, mod$X[mod_name,3]),1,2))
@@ -49,23 +53,34 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
           bmd_val = NULL
         }
       }else{
-        monotonic_behaviour = monotonicity(fittedModel=opt_mod,dose,range.length = 1000)
+        monotonic_behaviour = monotonicity(fittedModel=opt_mod,dose = dose,
+                                           range.length = 1000,dataframe = dataframe,
+                                           strictly_monotonic = strictly_monotonic)
+        
+        starting_point = predict(opt_mod, data.frame(dose = 0))
+        sd_level = rl *  sqrt(control_variance(model = opt_mod, constant_variance = constantVar, training_dose =dose ))
+        
         
         if(monotonic_behaviour == 0){
           bmd_val = NULL
         }else{
           if(monotonic_behaviour==1){
-            response_level = mean(exp[which(dose==0)]) + sd_level
+            response_level = starting_point + sd_level
             decreasing = FALSE
           }else if (monotonic_behaviour==-1){
-            response_level = mean(exp[which(dose==0)]) - sd_level
+            response_level = starting_point - sd_level
             decreasing = TRUE
           }
           
           bmd_val = drc::ED(object = opt_mod, respLev = response_level, interval = interval_type, level = conf_interval, type = "absolute", display=FALSE)[, c(1,3,4), drop = FALSE]
           
-          ic50 = max(dataframe$expr) - ((max(dataframe$expr) - min(dataframe$expr))/2)
+          doseRange = seq(min(dose), max(dose), length.out = 1000)
+          yFit <- stats::predict(opt_mod, newdata=data.frame(dose=doseRange))
+          
+          ic50 = max(yFit) - ((max(yFit) - min(yFit))/2)
           icval = drc::ED(object = opt_mod, respLev = ic50, interval = interval_type, level = conf_interval, type = "absolute")[, 1, drop = FALSE]
+          
+          
           bmd_val = cbind(bmd_val,icval, decreasing)
           bmd_val = cbind(bmd_val, matrix(c(mod_name, mod$X[mod_name,3]),1,2))
           colnames(bmd_val) = c("BMD", "BMDL","BMDU","IC50/EC50","Decreasing","MOD_NAME","LOFPVal")#,"ANOVAPVal")
@@ -81,17 +96,18 @@ compute_bmd_internal = function(mod, dataframe, first_only = TRUE,
     
     if(!is.null(bmd_val)){
       # print(bmd_val)
+      
       pass_filter = inner.check.model(bmd = as.numeric(bmd_val[1,"BMD"]),
                                       bmdl= as.numeric(bmd_val[1,"BMDL"]),
                                       bmdu= as.numeric(bmd_val[1,"BMDU"]),
                                       ic50= as.numeric(bmd_val[1,"IC50/EC50"]),
                                       fitting.pval= as.numeric(bmd_val[1,"LOFPVal"]),
-                                      min_dose=min_dose, max_dose=max_dose, loofth = loofth,
-                                      max_low_dos_perc_allowd = max_low_dos_perc_allowd,
-                                      max_max_dos_perc_allowd = max_max_dos_perc_allowd,
-                                      ratio_filter = ratio_filter, bmd_bmdl_th = bmd_bmdl_th,
-                                      bmdu_bmd_th = bmdu_bmd_th, bmdu_bmdl_th = bmdu_bmdl_th,
-                                      filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu)
+                                      min_dose=min_dose, max_dose=max_dose, loofth = loofth)
+                                      # max_low_dos_perc_allowd = max_low_dos_perc_allowd,
+                                      # max_max_dos_perc_allowd = max_max_dos_perc_allowd,
+                                      # ratio_filter = ratio_filter, bmd_bmdl_th = bmd_bmdl_th,
+                                      # bmdu_bmd_th = bmdu_bmd_th, bmdu_bmdl_th = bmdu_bmdl_th,
+                                      # filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu)
       
       # print(paste("MODEL:", mod_name, "PASS FILTER:", pass_filter))
       
@@ -127,25 +143,25 @@ inner.check.model = function(bmd, bmdl, bmdu, ic50,
   values_are_not_negative = (bmd>=0) & (bmdl>=0) & (bmdu>=0) & (ic50>=0)
   
   # tolerannce on the bmd minimum and maximum value
-  bmd_pass_low_dose_check = (bmd > (min_dose - (min_dose*max_low_dos_perc_allowd))) #& (bmdl > (min_dose - (min_dose*max_low_dos_perc_allowd))) & (bmdu > (min_dose - (min_dose*max_low_dos_perc_allowd)))
-  bmd_pass_max_dose_check = (bmd < (max_dose - (max_dose*max_max_dos_perc_allowd))) #& bmdl < (max_dose - (max_dose*max_max_dos_perc_allowd)) & bmdu < (max_dose - (max_dose*max_max_dos_perc_allowd))
+  # bmd_pass_low_dose_check = (bmd > (min_dose - (min_dose*max_low_dos_perc_allowd))) #& (bmdl > (min_dose - (min_dose*max_low_dos_perc_allowd))) & (bmdu > (min_dose - (min_dose*max_low_dos_perc_allowd)))
+  # bmd_pass_max_dose_check = (bmd < (max_dose - (max_dose*max_max_dos_perc_allowd))) #& bmdl < (max_dose - (max_dose*max_max_dos_perc_allowd)) & bmdu < (max_dose - (max_dose*max_max_dos_perc_allowd))
   
   # lack of fit pvalue
   pass_loof_test = fitting.pval >= loofth
   
   # if pass is true it will be an accepted model
-  pass = values_are_not_na & values_are_not_negative & bmd_pass_low_dose_check & bmd_pass_max_dose_check & pass_loof_test
+  pass = values_are_not_na & values_are_not_negative & pass_loof_test # & bmd_pass_low_dose_check & bmd_pass_max_dose_check
   
-  if(ratio_filter){
-    pass_ratio_filter = (bmd/bmdl > bmd_bmdl_th) & (bmdu/bmd > bmdu_bmd_th) & (bmdu/bmdl > bmdu_bmdl_th)
-    pass = pass & pass_ratio_filter
-  }
-  
-  if(filter_bounds_bmdl_bmdu){
-    bounds = bmdl>0 & bmdu< max_dose
-    pass = pass & bounds
-    
-  }
+  # if(ratio_filter){
+  #   pass_ratio_filter = (bmd/bmdl > bmd_bmdl_th) & (bmdu/bmd > bmdu_bmd_th) & (bmdu/bmdl > bmdu_bmdl_th)
+  #   pass = pass & pass_ratio_filter
+  # }
+  # 
+  # if(filter_bounds_bmdl_bmdu){
+  #   bounds = bmdl>0 & bmdu< max_dose
+  #   pass = pass & bounds
+  #   
+  # }
   
   return(pass)
   
@@ -159,17 +175,24 @@ inner.check.model = function(bmd, bmdl, bmdu, ic50,
 #' @keywords internal
 #' @export
 # return -1 if decreasing; 0 if not monotonic and 1 if increasing
-monotonicity = function(fittedModel,dose,range.length = 1000){
+monotonicity = function(fittedModel,dose,range.length = 1000, dataframe, strictly_monotonic){
   
-  step = (max(dose)-min(dose))/range.length
-  x = seq(min(dose),max(dose),length.out = range.length)
+  if(strictly_monotonic){
+    step = (max(dose)-min(dose))/range.length
+    x = seq(min(dose),max(dose),length.out = range.length)
+    
+    f1  = predict(fittedModel, newdata = data.frame(dose = x[1:(length(x)-1)]))
+    f2  = predict(fittedModel, newdata = data.frame(dose = x[2:length(x)]))
+    
+    deriv = (f2-f1)/step
+    
+    if(all(deriv>0)) return(1)
+    if(all(deriv<0)) return(-1)
+    return(0)
+  }else{
+    coef_mono = coef(lm(formula = expr~dose, data = dataframe))["dose"]
+    return(sign(coef_mono))
+  }
   
-  f1  = predict(fittedModel, newdata = data.frame(dose = x[1:(length(x)-1)]))
-  f2  = predict(fittedModel, newdata = data.frame(dose = x[2:length(x)]))
-  
-  deriv = (f2-f1)/step
-  
-  if(all(deriv>0)) return(1)
-  if(all(deriv<0)) return(-1)
-  return(0)
+
 }

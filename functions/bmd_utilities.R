@@ -576,6 +576,7 @@ listComb = function(x, ...) {
 #' @export
 
 compute_bmd = function(exp_data,pheno_data,
+                       strictly_monotonic,
                        time_t=4,
                        interval_type = "delta",
                        tpc = 4,
@@ -589,14 +590,14 @@ compute_bmd = function(exp_data,pheno_data,
                        conf_interval = 0.8,
                        min_dose = 0,
                        max_dose = 1000,
-                       max_low_dos_perc_allowd = 0,
-                       max_max_dos_perc_allowd=0,
-                       first_only = FALSE,
-                       ratio_filter = FALSE,
-                       bmd_bmdl_th = 20,
-                       bmdu_bmd_th = 20,
-                       bmdu_bmdl_th = 40,
-                       filter_bounds_bmdl_bmdu = FALSE){
+                       first_only = FALSE){
+                       # max_low_dos_perc_allowd = 0,
+                       # max_max_dos_perc_allowd=0,
+                       # ratio_filter = FALSE,
+                       # bmd_bmdl_th = 20,
+                       # bmdu_bmd_th = 20,
+                       # bmdu_bmdl_th = 40,
+                       # filter_bounds_bmdl_bmdu = FALSE){
   
   #,Kd = 10, hillN=2, pow = 2){
   if(tpc > ncol(pheno_data))
@@ -636,14 +637,13 @@ compute_bmd = function(exp_data,pheno_data,
     dose = df_timei[,dc]
     dose = as.numeric(as.vector(dose))
     
-    if(constantVar){
-      sd_level = stats::sd(exp) * rl
-    }else{
-      sd_level = stats::sd(exp[which(dose==0)]) * rl
-    }
-    
     df_gi = data.frame(dose=dose,expr=exp)
     df_gi$dose = as.numeric(as.vector(df_gi$dose))
+    
+    # formula=expr~dose
+    # dataframe=df_gi
+    # sel_mod_list=sel_mod_list
+    # Kd = 10
     
     mod = fit_models_mselect2(formula=expr~dose, dataframe=df_gi,sel_mod_list=sel_mod_list,Kd = 10)#, hillN=hillN, pow = pow)
     
@@ -655,21 +655,23 @@ compute_bmd = function(exp_data,pheno_data,
       
       
       bmd.internal.res = compute_bmd_internal(mod = mod,
+                                              rl = rl,
                                               dataframe = df_gi,
+                                              strictly_monotonic = strictly_monotonic,
                                               first_only = first_only,
-                                              sd_level, dose,
+                                              constantVar, dose,
                                               conf_interval,
                                               min_dose = min_dose,
                                               max_dose = max_dose,
                                               interval_type,
-                                              loofth=loofth,
-                                              max_low_dos_perc_allowd = max_low_dos_perc_allowd,
-                                              max_max_dos_perc_allowd=max_max_dos_perc_allowd,
-                                              ratio_filter = ratio_filter,
-                                              bmd_bmdl_th = bmd_bmdl_th,
-                                              bmdu_bmd_th = bmdu_bmd_th,
-                                              bmdu_bmdl_th = bmdu_bmdl_th,
-                                              filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu)
+                                              loofth=loofth)
+                                              # max_low_dos_perc_allowd = max_low_dos_perc_allowd,
+                                              # max_max_dos_perc_allowd=max_max_dos_perc_allowd,
+                                              # ratio_filter = ratio_filter,
+                                              # bmd_bmdl_th = bmd_bmdl_th,
+                                              # bmdu_bmd_th = bmdu_bmd_th,
+                                              # bmdu_bmdl_th = bmdu_bmdl_th,
+                                              # filter_bounds_bmdl_bmdu = filter_bounds_bmdl_bmdu)
       
       
       #if(!is.null(bmd_val))BMDValues = rbind(BMDValues,c(rownames(exp_data)[i],bmd_val,mod$mod_name,mod$loof_test))
@@ -909,13 +911,15 @@ fit_models = function(formula=expr~dose, dataframe,f_list,f_names,mNames){
   mod_list = list()
   good_idx = c()
   for(i in 1:length(f_list)){
-    mod_list[[mNames[i]]] = tryCatch({
+    res = tryCatch({
       mod.internal.internal <- drc::drm(formula = formula, data=dataframe,type="continuous", fct=f_list[[i]])
       good_idx=c(good_idx,i)
       mod.internal.internal
     }, error = function(e) {
       return(NULL)
     })
+    
+    if(!is.null(res)) mod_list[[mNames[i]]] = res
   }
   
   if(length(mod_list)==0){
@@ -965,10 +969,11 @@ fit_models = function(formula=expr~dose, dataframe,f_list,f_names,mNames){
 
 #' @export
 
-BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0,
+BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0.1, max_max_dos_perc_allowd = 0.1,
                        loofth = 0.1, ratio_filter = FALSE, bmd_bmdl_th = 20, bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
                        filter_bounds_bmdl_bmdu=FALSE){
   
+
   BMDValues = BMDRes$BMDValues
   BMDModels = BMDRes$opt_models_list
   
@@ -977,49 +982,61 @@ BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd =
   bmdu = as.numeric(as.vector(BMDValues[,"BMDU"]))
   ic50 = as.numeric(as.vector(BMDValues[,"IC50/EC50"]))
   
-  # filter bmd based on min and max doses and max perc allowed
-  bmd_to_rem_low_dose = c(which(bmd< (min_dose - (min_dose*max_low_dos_perc_allowd))),
-                          which(bmd> (max_dose - (max_dose*max_max_dos_perc_allowd))))
+  NA_idx = union(which(is.na(bmd)), union(which(is.na(bmdl)), union(which(is.na(bmdu)), which(is.na(ic50)))))
   
-  # bmd_to_rem = which(bmd>=max_dose)
+  values_are_not_ordered = c()
+  for(i in 1:length(bmd)){
+    if(bmd[i]<bmdl[i] | bmd[i]>bmdu[i]) values_are_not_ordered = c(values_are_not_ordered,i)
+  }
   
-  # remmove based on fitting pvalues
+  negative_values = union(which(bmd<0),union(which(bmdl<0), union(which(bmdu<0), which(ic50<0))))
+
   loof_to_rem = which(as.numeric(as.vector(BMDValues[,"LOFPVal"]))<=loofth)
   
-  # remove NA values
-  bmd_na = union(which(is.na(bmd)), union(which(is.na(bmdl)), union(which(is.na(ic50)) ,	which(is.na(bmdu)))))
-  
-  # remove negative values
-  bmd_neg = union(which(bmd<0), union(which(bmdl<0), union(which(bmdu<0), which(ic50<0))))
-  
-  to_rem = union(union(bmd_to_rem_low_dose,loof_to_rem), union(bmd_na, bmd_neg))
-  
-  if(filter_bounds_bmdl_bmdu){
-    bounds = union(which(bmdl<=0), which(bmdu>= max_dose))
-    # print(paste("bound filter removes ", length(bounds),sep = ""))
-    
-    to_rem = union(to_rem, bounds)
-  }
+  to_rem = union(NA_idx, union(values_are_not_ordered,union(loof_to_rem,negative_values)))
   
   if(ratio_filter){
     bmdbmdl = bmd/bmdl
     bmdubmd = bmdu/bmdl
     bmdubmdl = bmdu/bmdl
-    
-    
     to_rem_bmd_bmdl_ratio = which(bmdbmdl > bmd_bmdl_th)
     to_rem_bmdu_bmd_ratio = which(bmdubmd > bmdu_bmd_th)
     to_rem_bmdu_bmdl_ratio = which(bmdubmdl > bmdu_bmdl_th)
     
     to_rem_ratio = union(to_rem_bmd_bmdl_ratio, union(to_rem_bmdu_bmd_ratio,to_rem_bmdu_bmdl_ratio))
     
-    #   	print(paste("ratio filter removes ", length(to_rem_ratio),sep = ""))
-    # 		print(bmdbmdl)
-    # 		print(bmdubmd)
-    # 		print(bmdubmdl)
     to_rem = union(to_rem,to_rem_ratio)
   }
   
+  
+  if(filter_bounds_bmdl_bmdu){
+    # tolerannce on the bmd minimum and maximum value
+    # e.g. remove BMDs are extrapolated lower than the lowest dose (for example BMDs lower than 10% of the lowest dose)
+    min_tol = min_dose*max_low_dos_perc_allowd
+    torem_lower_bound = union(which(bmd < min_tol), union( which(bmdl < min_tol), which(bmdu < min_tol)))
+    
+    
+    to_rem_upper_bound = union(which(bmd > (max_dose - (max_dose*max_max_dos_perc_allowd))),
+                                union(which(bmdl > (max_dose - (max_dose*max_max_dos_perc_allowd))),
+                                      which(bmdu > (max_dose - (max_dose*max_max_dos_perc_allowd)))))
+    
+    bounds = union(which(bmdl<=0), which(bmdu>= max_dose))
+    
+    to_rem = union(to_rem,union(bounds,union(torem_lower_bound,to_rem_upper_bound)))
+    
+  }
+  
+
+  # if(filter_lower_bound){
+  #   min_tol = min_dose*lower_bound_th
+  #   bmd_pass_lower_bound = (bmd > min_tol) & (bmdl > min_tol) & (bmdu > min_tol)
+  #   pass = pass & bmd_pass_lower_bound
+  # }
+  # if(filter_upper_bound){
+  #   bmd_pass_upper_bound = (bmd < (max_dose - (max_dose*upper_bound_th))) & bmdl < (max_dose - (max_dose*upper_bound_th)) & bmdu < (max_dose - (max_dose*upper_bound_th))
+  #   pass = pass & bmd_pass_upper_bound
+  #   
+  # }
   
   if(length(to_rem)>0){
     BMDValues_filtered = BMDValues[-to_rem,]
@@ -1032,6 +1049,74 @@ BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd =
   
   return(list(BMDValues_filtered=BMDValues_filtered,BMDModels_filtered=BMDModels_filtered))
 }
+
+# BMD_filters = function(BMDRes,max_dose = 20, min_dose, max_low_dos_perc_allowd = 0, max_max_dos_perc_allowd = 0,
+#                        loofth = 0.1, ratio_filter = FALSE, bmd_bmdl_th = 20, bmdu_bmd_th = 20, bmdu_bmdl_th = 40,
+#                        filter_bounds_bmdl_bmdu=FALSE){
+#   
+#   BMDValues = BMDRes$BMDValues
+#   BMDModels = BMDRes$opt_models_list
+#   
+#   bmd = as.numeric(as.vector(BMDValues[,"BMD"]))
+#   bmdl = as.numeric(as.vector(BMDValues[,"BMDL"]))
+#   bmdu = as.numeric(as.vector(BMDValues[,"BMDU"]))
+#   ic50 = as.numeric(as.vector(BMDValues[,"IC50/EC50"]))
+#   
+#   # filter bmd based on min and max doses and max perc allowed
+#   bmd_to_rem_low_dose = c(which(bmd< (min_dose - (min_dose*max_low_dos_perc_allowd))),
+#                           which(bmd> (max_dose - (max_dose*max_max_dos_perc_allowd))))
+#   
+#   # bmd_to_rem = which(bmd>=max_dose)
+#   
+#   # remmove based on fitting pvalues
+#   loof_to_rem = which(as.numeric(as.vector(BMDValues[,"LOFPVal"]))<=loofth)
+#   
+#   # remove NA values
+#   bmd_na = union(which(is.na(bmd)), union(which(is.na(bmdl)), union(which(is.na(ic50)) ,	which(is.na(bmdu)))))
+#   
+#   # remove negative values
+#   bmd_neg = union(which(bmd<0), union(which(bmdl<0), union(which(bmdu<0), which(ic50<0))))
+#   
+#   to_rem = union(union(bmd_to_rem_low_dose,loof_to_rem), union(bmd_na, bmd_neg))
+#   
+#   if(filter_bounds_bmdl_bmdu){
+#     bounds = union(which(bmdl<=0), which(bmdu>= max_dose))
+#     # print(paste("bound filter removes ", length(bounds),sep = ""))
+#     
+#     to_rem = union(to_rem, bounds)
+#   }
+#   
+#   if(ratio_filter){
+#     bmdbmdl = bmd/bmdl
+#     bmdubmd = bmdu/bmdl
+#     bmdubmdl = bmdu/bmdl
+#     
+#     
+#     to_rem_bmd_bmdl_ratio = which(bmdbmdl > bmd_bmdl_th)
+#     to_rem_bmdu_bmd_ratio = which(bmdubmd > bmdu_bmd_th)
+#     to_rem_bmdu_bmdl_ratio = which(bmdubmdl > bmdu_bmdl_th)
+#     
+#     to_rem_ratio = union(to_rem_bmd_bmdl_ratio, union(to_rem_bmdu_bmd_ratio,to_rem_bmdu_bmdl_ratio))
+#     
+#     #   	print(paste("ratio filter removes ", length(to_rem_ratio),sep = ""))
+#     # 		print(bmdbmdl)
+#     # 		print(bmdubmd)
+#     # 		print(bmdubmdl)
+#     to_rem = union(to_rem,to_rem_ratio)
+#   }
+#   
+#   
+#   if(length(to_rem)>0){
+#     BMDValues_filtered = BMDValues[-to_rem,]
+#     BMDModels_filtered = BMDModels[-to_rem]
+#   }else{
+#     BMDValues_filtered = BMDValues
+#     BMDModels_filtered = BMDModels
+#   }
+#   
+#   
+#   return(list(BMDValues_filtered=BMDValues_filtered,BMDModels_filtered=BMDModels_filtered))
+# }
 
 
 #
