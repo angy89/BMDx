@@ -21,41 +21,57 @@
 #'
 #' @export
 #'
-fit_models_lm = function(dataframe = dataframe, mNames=mNames,linreg= T, powreg = T, pow = pow, expreg = T, hillreg = T, hillN = hillN, Kd = Kd,sorted = c("IC", "Res var", "Lack of fit", "no"), contData = TRUE,icfct = stats::AIC){
-  sorted <- match.arg(sorted)
+fit_models_lm = function(dataframe = dataframe, mNames=mNames,
+                         pow = pow, hillN = hillN, Kd = Kd,
+                         sorted = c("IC", "Res var", "Lack of fit", "no"), 
+                         contData = TRUE,icfct = stats::AIC){
   
-  # drcData <- as.data.frame(dataframe[, c(2, 1)])
-  # names(drcData) <- c("yVec", "dose")
+  sorted <- match.arg(sorted, c("IC", "Res var", "Lack of fit", "no"))
+  
   retMat = c()
   
   cnames <- c("logLik", "IC", "Lack of fit")
-  if (contData) {
+  if(contData){
     cnames <- c(cnames, "Res var")
   }
   
   FittedModels = list()
   
+  linreg = any(mNames %in% c("Linear", "Quadratic", "Cubic"))
+  powreg = any(mNames %in% c( "Power2","Power3","Power4"))
+  expreg = any(mNames %in% c("Exponential"))
+  hillreg = any(mNames %in% c("Hill05","Hill1","Hill2","Hill3","Hill4","Hill5"))
+  
   if (linreg) {
+    
+    linMod = c("Linear", "Quadratic", "Cubic")[c("Linear", "Quadratic", "Cubic") %in% mNames]
     
     linFitList <- list("Linear" = stats::lm(expr ~ dose, data = dataframe),
                        "Quadratic" = stats::lm(expr ~ dose + I(dose * dose), data = dataframe),
                        "Cubic" = stats::lm(expr ~ dose + I(dose * dose) + I(dose * dose *
                                                                               dose), data = dataframe))
-    FittedModels = c(FittedModels, linFitList)
+    FittedModels = c(FittedModels, linFitList[linMod])
     
-    linModMat <- matrix(unlist(lapply(linFitList, function(listObj) {
-      c(stats::logLik(listObj), icfct(listObj), NA, (summary(listObj)$sigma)^2)
-    })), 3, 4, byrow = TRUE)
-    linModMat[1,3] = alr3::pureErrorAnova(linFitList[[1]])[[5]][3] #1
-    linModMat[2,3] = alr3::pureErrorAnova(linFitList[[2]])[[5]][4] #2
-    linModMat[3,3] = alr3::pureErrorAnova(linFitList[[3]])[[5]][5] #3
+    linModMat = do.call(rbind,lapply(linFitList[linMod], function(listObj) {
+        c(stats::logLik(listObj), icfct(listObj), NA, (summary(listObj)$sigma)^2)
+      }))
     
-    rownames(linModMat) <- c("Linear", "Quadratic", "Cubic")
+    pureErr = c()
+    for(i in rownames(linModMat)){
+      if(i == "Linear") pureErr = c(pureErr, alr3::pureErrorAnova(linFitList[[1]])[[5]][3])
+      if(i == "Quadratic") pureErr = c(pureErr,alr3::pureErrorAnova(linFitList[[2]])[[5]][4])
+      if(i == "Cubic") pureErr = c(pureErr,alr3::pureErrorAnova(linFitList[[3]])[[5]][5])
+      
+    }
+    
+    linModMat[,3]=  pureErr
     colnames(linModMat) <- cnames[1:4]
     
     retMat <- rbind(retMat, linModMat)
   }
+  
   if(powreg){ #fit power model
+    
     powerList = list()
     for(pp in pow){
       if(pp ==2) mod_pow = stats::lm(expr ~ I(dose^2), data = dataframe)
@@ -122,7 +138,7 @@ fit_models_lm = function(dataframe = dataframe, mNames=mNames,linreg= T, powreg 
   
   colnames(retMat) <- cnames
   
-  if (sorted != "no") {
+  if (sorted != "no" & nrow(retMat)>1) {
     retMat = retMat[order(retMat[, sorted]), ]
   }
   

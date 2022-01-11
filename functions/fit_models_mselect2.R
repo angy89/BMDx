@@ -63,7 +63,16 @@ fit_models_mselect2 = function(formula=expr~dose, dataframe,sel_mod_list=sel_mod
       if (length(models_to_compare) > 0) fctList = f_list[models_to_compare] else fctList = NULL
       
       # get AIC, lack of fit pvalue and logLik for all the models selected by the user
-      X_drc = mselect2(object = mod.internal$opt_mod, fctList = fctList,sorted = "IC", linreg= F, powreg = F, pow = pow, expreg = F, hillreg = F, hillN = hillN, Kd = Kd)
+      # object = mod.internal$opt_mod
+      # save(object,fctList, formula, dataframe, file = "tmp_mselect2.RData")
+      X_drc = mselect2(object = mod.internal$opt_mod, 
+                       fctList = fctList,sorted = "IC", 
+                       dataframe = dataframe)
+
+      if(is.null(fctList)){
+        X_drc = matrix(X_drc, nrow = 1,dimnames = list(mod.internal$mod_name, names(X_drc)))
+        rownames(X_drc) = gsub(pattern = "\\(\\)",replacement = "",x =rownames(X_drc))
+      }
       
       mname = gsub(pattern = "\\(\\)",replacement = "",x = mod.internal$mod_name)
       X_drc[which(rownames(X_drc) %in% mname)[1],3] = mod.internal$loof_test$`p value`[2]
@@ -94,7 +103,7 @@ fit_models_mselect2 = function(formula=expr~dose, dataframe,sel_mod_list=sel_mod
     selected_models = sel_mod_list[sel_mod_list>21]
     mNames = mNames_all[selected_models]
     
-    fitt_res = fit_models_lm(dataframe = dataframe, mNames=mNames,linreg= T, powreg = T, pow = pow, expreg = T, hillreg = T, hillN = hillN, Kd = Kd,sorted = "IC", contData = TRUE)
+    fitt_res = fit_models_lm(dataframe = dataframe, mNames=mNames, pow = pow, hillN = hillN, Kd = Kd,sorted = "IC", contData = TRUE)
     if(is.null(fitt_res)==FALSE){
       X_lm = fitt_res$retMat
       
