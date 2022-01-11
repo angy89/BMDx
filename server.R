@@ -64,6 +64,14 @@ source("functions/compute_bmd_internal.R")
 source("functions/fit_models_mselect2.R")
 source("functions/fit_models_lm.R")
 
+
+#Get source directory
+srcDir <- dirname(getSrcDirectory(function(x){x}))
+print("Print Source Directory")
+#print(dirname(getSrcDirectory(function(x){x})))
+print(srcDir)
+
+
 # this instruction increase the maximum size of the file that can be uploaded in a shiny application
 options(shiny.maxRequestSize=300*1024^2) 
 
@@ -147,6 +155,14 @@ shinyServer(function(input, output, session) {
   gVars$normChoices <- c("Between Arrays"="BA", "Quantile"="quantile", "Variance Stabilizing"="vsn", "Cyclic Loess"="cl")
   gVars$baChoices <- c("None"="none", "Scale"="scale", "Quantile"="quantile", "Cyclic Loess"="cyclicloess")
   
+  gVars$AllAvailableModels =  mNames_all = c("LL.2","LL.3","LL.3u","LL.4","LL.5",
+                                             "W1.2","W1.3","W1.4","W2.2","W2.3","W2.4",
+                                             "BC.4","BC.5",
+                                             "LL2.2","LL2.3","LL2.4","LL2.5",
+                                             "AR.2","AR.3",
+                                             "MM.2","MM.3","Linear", "Quadratic", "Cubic",
+                                             "Power2","Power3","Power4","Exponential",
+                                             "Hill05","Hill1","Hill2","Hill3","Hill4","Hill5")
   
   observeEvent(input$upload_gx_submit, {
     gxFile <- input$gx
@@ -604,32 +620,34 @@ shinyServer(function(input, output, session) {
       for(i in timep){
         print("compute_bmd")
         
-        exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]]
-        pheno_data=gVars$phTable[[names(gVars$phTable)[j]]]
-        time_t=as.character(i)
-        interval_type = "delta"
-        tpc = gVars$TPColID
-        dc = gVars$doseColID 
-        sc = gVars$sampleColID 
-        sel_mod_list = as.numeric(input$ModGroup)
-        rl = as.numeric(input$RespLev)
-        conf_interval = as.numeric(input$conf_interval)
-        constantVar = input$constantVar
-        nCores = as.numeric(input$BMDNCores)
-        min_dose = minDose
-        max_dose = maxDose
-        max_low_dos_perc_allowd = as.numeric(input$min_dose_perc)
-        max_max_dos_perc_allowd= as.numeric(input$max_dose_perc) 
-        first_only = input$first_model_AIC
-        ratio_filter = input$ratio_filter 
-        bmd_bmdl_th = as.numeric(input$bmd_bmdl_th)
-        bmdu_bmd_th = as.numeric(input$bmdu_bmd_th) 
-        bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th)
-        filter_bounds_bmdl_bmdu = FALSE #input$filter_bounds_bmdl_bmdu,
-        loofth = as.numeric(input$LOOF)
+        # exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]]
+        # pheno_data=gVars$phTable[[names(gVars$phTable)[j]]]
+        # time_t=as.character(i)
+        # interval_type = "delta"
+        # tpc = gVars$TPColID
+        # dc = gVars$doseColID
+        # sc = gVars$sampleColID
+        # sel_mod_list = as.numeric(input$ModGroup)
+        # rl = as.numeric(input$RespLev)
+        # conf_interval = as.numeric(input$conf_interval)
+        # constantVar = input$constantVar
+        # nCores = as.numeric(input$BMDNCores)
+        # min_dose = minDose
+        # max_dose = maxDose
+        # max_low_dos_perc_allowd = as.numeric(input$min_dose_perc)
+        # max_max_dos_perc_allowd= as.numeric(input$max_dose_perc)
+        # first_only = input$first_model_AIC
+        # ratio_filter = input$ratio_filter
+        # bmd_bmdl_th = as.numeric(input$bmd_bmdl_th)
+        # bmdu_bmd_th = as.numeric(input$bmdu_bmd_th)
+        # bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th)
+        # filter_bounds_bmdl_bmdu = FALSE #input$filter_bounds_bmdl_bmdu,
+        # loofth = as.numeric(input$LOOF)
         
+        print("prova")
         MQ_BMDList[[names(gVars$EXP_FIL)[j]]][[as.character(i)]]  = compute_bmd(exp_data=gVars$EXP_FIL[[names(gVars$phTable)[j]]][[as.character(i)]], 
                                                                                 pheno_data=gVars$phTable[[names(gVars$phTable)[j]]],
+                                                                                strictly_monotonic = input$strictly_monotonic,
                                                                                 time_t=as.character(i), 
                                                                                 interval_type = "delta",
                                                                                 tpc = gVars$TPColID, 
@@ -642,15 +660,15 @@ shinyServer(function(input, output, session) {
                                                                                 nCores = as.numeric(input$BMDNCores),
                                                                                 min_dose = minDose,
                                                                                 max_dose = maxDose,
-                                                                                max_low_dos_perc_allowd = as.numeric(input$min_dose_perc), 
-                                                                                max_max_dos_perc_allowd= as.numeric(input$max_dose_perc), 
                                                                                 first_only = input$first_model_AIC,  
-                                                                                ratio_filter = input$ratio_filter, 
-                                                                                bmd_bmdl_th = as.numeric(input$bmd_bmdl_th), 
-                                                                                bmdu_bmd_th = as.numeric(input$bmdu_bmd_th), 
-                                                                                bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th),
-                                                                                filter_bounds_bmdl_bmdu = FALSE, #input$filter_bounds_bmdl_bmdu,
                                                                                 loofth = as.numeric(input$LOOF)
+                                                                                # max_low_dos_perc_allowd = as.numeric(input$min_dose_perc), 
+                                                                                # max_max_dos_perc_allowd= as.numeric(input$max_dose_perc), 
+                                                                                # ratio_filter = input$ratio_filter, 
+                                                                                # bmd_bmdl_th = as.numeric(input$bmd_bmdl_th), 
+                                                                                # bmdu_bmd_th = as.numeric(input$bmdu_bmd_th), 
+                                                                                # bmdu_bmdl_th = as.numeric(input$bmdu_bmdl_th),
+                                                                                # filter_bounds_bmdl_bmdu = FALSE, #input$filter_bounds_bmdl_bmdu,
                                                                                 )
 
         
@@ -707,8 +725,9 @@ shinyServer(function(input, output, session) {
         timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
         print(timep)
         
-        maxDose = max(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
-        minDose = min(as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID])))
+        doses_tested = as.numeric(unique(gVars$phTable[[j]][,gVars$doseColID]))
+        maxDose = max(doses_tested[doses_tested>0])
+        minDose = min(doses_tested[doses_tested>0])
         
         for(i in timep){
           
@@ -870,7 +889,7 @@ shinyServer(function(input, output, session) {
         
         pTable = gVars$phTable[[j]]
         timep = as.numeric(names(gVars$EXP_FIL[[j]]))#unique(pTable[,gVars$TPColID])
-        
+        timep = sort(timep,decreasing = F)
         print(timep)
         
         for(i in timep){
@@ -1585,12 +1604,14 @@ shinyServer(function(input, output, session) {
     BMD = BMD[order(BMD$bmd),]
     BMD$gene = factor(x = BMD$gene, levels = BMD$gene)
     
+
     p = ggplot(data=BMD, aes(x=gene, y=bmd, group=1, label1 = bmdl, label2 = bmdu)) +
       geom_line()+
       geom_point() +
       geom_ribbon(aes(ymin=BMD$bmdl, ymax=BMD$bmdu), linetype=2, alpha=0.1) +
       labs(y = "BMDL - BMD - BMDU", x = "Gene")
       
+    gVars$BMD_dist_in_path = p
     ggplotly(p)
 
   })
@@ -1607,6 +1628,7 @@ shinyServer(function(input, output, session) {
 
     PATWAY_tab <- gVars$EnrichDatList[[input$time_point_id_visualPat]]
     PATWAY_tab = PATWAY_tab[,c(1,3,4,5)]
+    gVars$PATWAY_tab=PATWAY_tab
     DT::datatable(PATWAY_tab, filter="top",
                   options = list(
                     search = list(regex=TRUE, caseInsensitive=FALSE),
@@ -1659,6 +1681,7 @@ shinyServer(function(input, output, session) {
     p = ggplot(DF, aes(x=BMDL, y=BMD, color = MOD_NAME)) +
       geom_point(shape=1) +  facet_grid(. ~ TimePoint)
     
+    gVars$BMD_BMDL = p
     ggplotly(p)
     # ggplot(data=DF, aes(Model)) + 
     #   geom_histogram()+  facet_grid(. ~ TimePoint)
@@ -1706,10 +1729,11 @@ shinyServer(function(input, output, session) {
     #save(DF, file = "../mod_hist.RData")
     
     print(head(DF))
-    ggplot(data=DF, aes(x = "", y = Freq, fill = Model)) + geom_bar(width = 1, stat = "identity") + 
+    p=ggplot(data=DF, aes(x = "", y = Freq, fill = Model)) + geom_bar(width = 1, stat = "identity") + 
       coord_polar("y", start=0)    +  facet_grid(. ~ TimePoint)
       #geom_histogram()+  facet_grid(. ~ TimePoint)
-    
+    gVars$BMD_dist_models = p
+    p
   })
   
   output$BMD_BMDL_BMDU_by_model = renderPlotly({
@@ -1752,6 +1776,7 @@ shinyServer(function(input, output, session) {
     p = ggplot(DF, aes(x=Model, y=Value, fill = ValueType)) + geom_boxplot(width=0.5) +facet_grid(. ~ TimePoint)
     ggplotly(p) %>%layout(boxmode = "group")
     
+    gVars$BMD_BMDL_BMDU_by_model = p
   })
   
   output$BMD_dist_TP = renderPlotly({
@@ -1801,6 +1826,7 @@ shinyServer(function(input, output, session) {
         geom_density(alpha = .2, fill="#FF6655") +
         facet_grid(. ~ TimePoint)
 
+    gVars$BMD_dist_TP = p
     ggplotly(p)
   })
   
@@ -1834,6 +1860,8 @@ shinyServer(function(input, output, session) {
       geom_histogram(aes(y = ..density..)) + 
       geom_density(alpha = .2, fill="#FF6655") +
       facet_grid(. ~ TimePoint)
+    
+    gVars$BMD_pval_fitting = p
     
     ggplotly(p)
   })
@@ -1874,7 +1902,7 @@ shinyServer(function(input, output, session) {
       geom_bar(stat="identity")
     
     ggplotly(p)
-    
+    gVars$NGTime = p
   })
   
   
@@ -1909,6 +1937,7 @@ shinyServer(function(input, output, session) {
           geom_point() + facet_grid(~Cluster)
       }
       
+      gVars$gene_bmd_plot = p
       ggplotly(p)
     }
   })
@@ -2070,6 +2099,8 @@ shinyServer(function(input, output, session) {
       }
       
       if(length(gVars$PValMat)>1){
+        print("I keep saving enrichment tables")
+        
         for(i in (startI+1):length(gVars$EnrichDatList)){
           if(nrow(gVars$EnrichDatList[[i]])>0){
             write.xlsx(gVars$EnrichDatList[[i]], file, sheetName =  names(gVars$EnrichDatList)[i], append = TRUE) 
@@ -2280,6 +2311,8 @@ shinyServer(function(input, output, session) {
         scale_colour_manual(name="Values",
                             values=c(BMDL="red", BMD="blue", BMDU="green"))
      }
+    
+    gVars$plotted_gene = ggp
     ggp
 
   })
@@ -3913,6 +3946,36 @@ shinyServer(function(input, output, session) {
   })
   
   
-  
+  output$exportRpt <- shiny::downloadHandler(
+    filename = function(){
+      paste("BMDx_Analysis_Report_", Sys.Date(), '.html', sep='')
+    },
+    content = function(con){
+      
+      #start loading screen
+      shinyjs::html(id="loadingText", "CREATING ANALYSIS REPORT")
+      shinyjs::show(id="loading-content")
+      
+      on.exit({
+        shinyjs::hide(id="loading-content", anim=TRUE, animType="fade")
+      })
+      #Disable Warning
+      oldw <- getOption("warn")
+      options(warn = -1)
+      
+      tempReport <- file.path(tempdir(), "report.Rmd")
+      file.copy("report.Rmd", tempReport, overwrite=TRUE)
+      
+      #params <- list(gVars=gVars, input=input)
+      params <- list(gVars=gVars, input=input, srcDir=srcDir)
+      rmarkdown::render(tempReport, output_file=con,
+                        params=params,
+                        envir=new.env(parent=globalenv())
+      )
+      
+      #Enable Warning
+      options(warn = oldw)
+    }
+  )
   
 })
