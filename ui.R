@@ -275,7 +275,7 @@ fluidPage(
                        #   
                        # ),
                        fluidRow(
-                         column(3, selectInput("BMDNCores", "Number of cores:", choices=c(1:25), selected = 3))
+                         column(3, selectInput("BMDNCores", "Number of cores:", choices=c(1:25), selected = 1))
                        ),
                        fluidRow(
                          column(12,selectInput("BMDSettings", "Select the BMD analysis setting", choices=c("All","Regulatory","Degree of Freedom", "Custom"),selected="Custom"))
